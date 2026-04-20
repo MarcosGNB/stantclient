@@ -235,11 +235,12 @@ function App() {
         <header className="p-6 pb-2 animate-fade shrink-0">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 glass rounded-2xl overflow-hidden flex-shrink-0 border border-white/10 shadow-lg">
-                <img src="/logo.png" alt="Logo" className="w-full h-full object-contain p-1" />
+              <div className="w-8 h-8 bg-white/5 rounded-xl flex items-center justify-center p-1 relative overflow-hidden group">
+                <img src="/logo.png" alt="Logo" className="w-full h-full object-contain p-0.5" />
+                <div className="absolute inset-0 bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
               <div onClick={handleLogout} className="cursor-pointer group">
-                <h1 className="text-xl font-bold tracking-tight text-white leading-none group-hover:text-red-400 transition-colors">VapoStant</h1>
+                <h1 className="text-xl font-bold tracking-tight text-white leading-none group-hover:text-red-400 transition-colors">MGNB</h1>
                 <p className="text-slate-400 text-[10px] uppercase tracking-widest mt-1 font-bold group-hover:opacity-0 transition-opacity">
                   {user?.role === 'admin' ? 'ADMIN CENTER' : 'GESTIÓN PRO'}
                 </p>
@@ -717,7 +718,7 @@ const ExportModal = ({ data, onClose }) => {
           <div id="export-ticket" className="ticket-template">
             <div className="ticket-header">
               <img src="/logo.png" alt="Logo" className="ticket-logo" crossOrigin="anonymous" />
-              <h1 style={{fontSize: '24px', margin: '0'}}>VapoStant</h1>
+              <h1 style={{fontSize: '24px', margin: '0'}}>MGNB</h1>
               <p style={{fontSize: '12px', color: '#64748b', margin: '5px 0 0'}}>{data.title}</p>
               <p style={{fontSize: '10px', color: '#94a3b8', marginTop: '10px'}}>{format(new Date(), 'dd/MM/yyyy HH:mm')}</p>
             </div>
@@ -1141,7 +1142,7 @@ function LoginView({ onLogin }) {
           <div className="w-16 h-16 glass rounded-2xl flex items-center justify-center mb-4 border-white/10 shadow-2xl">
             <ShieldCheck className="text-blue-500" size={32} />
           </div>
-          <h1 className="text-2xl font-black tracking-tighter">Vapo<span className="text-blue-500">Stant</span></h1>
+          <h1 className="text-2xl font-black tracking-tighter">MGNB</h1>
           <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Management System</p>
         </div>
 
@@ -1350,14 +1351,13 @@ function PWAInstallModal({ isIOS, onInstall }) {
       <div className="pwa-glow-2" />
       
       <div className="pwa-content">
-        <div className="pwa-logo-box">
-          <img src="/logo.png" alt="logo" className="w-14 h-14 object-contain brightness-110" />
+        <div className="bg-black/40 p-4 rounded-3xl border border-white/5 shadow-2xl backdrop-blur-xl mx-auto w-fit mb-6 ring-1 ring-white/10 relative">
+          <div className="absolute inset-0 bg-blue-500/20 blur-xl rounded-full" />
+          <img src="/logo.png" alt="logo" className="w-10 h-10 object-contain brightness-110 relative z-10" />
         </div>
+        <h1 className="text-3xl font-black text-center mb-2 tracking-tight">MGNB</h1>
         
         <div className="mb-14">
-          <h1 className="text-4xl font-black mb-3 tracking-tighter text-white drop-shadow-2xl">
-            Vapo<span className="text-blue-500">Stant</span>
-          </h1>
           <div className="h-1 w-12 bg-blue-500 mx-auto rounded-full mb-4 opacity-50" />
           <p className="text-slate-400 text-sm max-w-[260px] mx-auto leading-relaxed font-medium">
             Sistema de gestión optimizado. Instala la aplicación para continuar.
@@ -1383,7 +1383,7 @@ function PWAInstallModal({ isIOS, onInstall }) {
             <Smartphone size={24} /> INSTALAR AHORA
           </button>
         )}
-        <p className="mt-8 text-[10px] text-slate-600 font-bold uppercase tracking-[0.3em]">Gestión Exclusiva VapoStant</p>
+        <p className="mt-8 text-[10px] text-slate-600 font-bold uppercase tracking-[0.3em]">Gestión Exclusiva MGNB</p>
       </div>
     </div>
   );
