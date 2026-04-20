@@ -230,45 +230,49 @@ function App() {
           />
         ) : (
           <>
-            {activeTab === 'dashboard' && (
-              <div className="animate-fade">
-                <div className="flex justify-between items-center mb-4 px-2">
-                   <h2 className="text-sm font-bold uppercase tracking-widest text-slate-500">Mis Sucursales</h2>
-                   <span className="text-[10px] font-black text-slate-700">@{user?.username}</span>
-                </div>
-                <div className="dashboard-grid">
-                  {stantes.map(s => (
-                    <div key={s._id} className="stante-card" onClick={() => setSelectedStante(s)}>
-                      <div className="stante-icon-wrapper"><Store size={24} /></div>
-                      <div>
-                        <h3 className="font-bold text-sm">{s.name}</h3>
-                        <p className="text-[10px] text-slate-500 flex items-center justify-center gap-1">
-                          <MapPin size={8} /> {s.location || 'Sucursal'}
-                        </p>
+            {user?.role === 'admin' ? (
+              <AdminPanelView />
+            ) : (
+              <>
+                {activeTab === 'dashboard' && (
+                  <div className="animate-fade">
+                    <div className="flex justify-between items-center mb-4 px-2">
+                       <h2 className="text-sm font-bold uppercase tracking-widest text-slate-500">Mis Sucursales</h2>
+                       <span className="text-[10px] font-black text-slate-700">@{user?.username}</span>
+                    </div>
+                    <div className="dashboard-grid">
+                      {stantes.map(s => (
+                        <div key={s._id} className="stante-card" onClick={() => setSelectedStante(s)}>
+                          <div className="stante-icon-wrapper"><Store size={24} /></div>
+                          <div>
+                            <h3 className="font-bold text-sm">{s.name}</h3>
+                            <p className="text-[10px] text-slate-500 flex items-center justify-center gap-1">
+                              <MapPin size={8} /> {s.location || 'Sucursal'}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                      <div className="stante-card bg-transparent border-dashed border-white/10" onClick={() => setShowAddStante(true)}>
+                        <Plus size={24} className="text-slate-600" />
                       </div>
                     </div>
-                  ))}
-                  <div className="stante-card bg-transparent border-dashed border-white/10" onClick={() => setShowAddStante(true)}>
-                    <Plus size={24} className="text-slate-600" />
+                    {stantes.length === 0 && (
+                       <div className="mt-10 p-8 glass rounded-3xl text-center">
+                          <Store className="mx-auto mb-4 text-slate-600" size={40} />
+                          <p className="text-sm text-slate-500 font-medium">Aún no tienes sucursales.<br/>Crea la primera para empezar.</p>
+                          <button onClick={() => setShowAddStante(true)} className="mt-5 text-blue-500 font-bold text-xs uppercase tracking-widest">Crear Sucursal</button>
+                       </div>
+                    )}
                   </div>
-                </div>
-                {stantes.length === 0 && (
-                   <div className="mt-10 p-8 glass rounded-3xl text-center">
-                      <Store className="mx-auto mb-4 text-slate-600" size={40} />
-                      <p className="text-sm text-slate-500 font-medium">Aún no tienes sucursales.<br/>Crea la primera para empezar.</p>
-                      <button onClick={() => setShowAddStante(true)} className="mt-5 text-blue-500 font-bold text-xs uppercase tracking-widest">Crear Sucursal</button>
-                   </div>
                 )}
-              </div>
-            )}
-            
-            {activeTab === 'products' && (
-              <InventoryView products={products} refresh={fetchInitialData} onAdd={() => setShowAddProduct(true)} />
-            )}
+                
+                {activeTab === 'products' && (
+                  <InventoryView products={products} refresh={fetchInitialData} onAdd={() => setShowAddProduct(true)} />
+                )}
 
-            {activeTab === 'reports' && <GlobalReportsView stantes={stantes} onExport={(data) => setExportData(data)} />}
-
-            {activeTab === 'admin' && <AdminPanelView />}
+                {activeTab === 'reports' && <GlobalReportsView stantes={stantes} onExport={(data) => setExportData(data)} />}
+              </>
+            )}
           </>
         )}
       </main>
