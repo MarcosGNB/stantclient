@@ -76,10 +76,13 @@ function App() {
       fetchInitialData();
     }
 
-    // Handle 403 (Blocked License)
+    // Handle Errors (Auto-logout on 401, Block on 403)
     const interceptor = axios.interceptors.response.use(
       res => res,
       err => {
+        if (err.response?.status === 401) {
+          handleLogout();
+        }
         if (err.response?.status === 403 && err.response?.data?.message?.includes('licencia mgnb')) {
           setIsBlocked(true);
         }
