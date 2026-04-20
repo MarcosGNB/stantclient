@@ -129,7 +129,7 @@ function App() {
       }
     }
 
-    return () => axios.interceptors.response.eject(interceptor);
+    return () => axios.interceptors.response.eject(blockInterceptor);
   }, [token]);
 
   const handleInstallClick = async () => {
