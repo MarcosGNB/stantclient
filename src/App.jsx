@@ -711,7 +711,7 @@ const QuickButton = ({ icon, label, color, onClick }) => (
   </button>
 );
 
-const InventoryView = ({ products, stantes, refresh, onAdd, onExport }) => {
+const InventoryView = ({ products, stantes, refresh, onAdd, onExport, onEdit, onDelete }) => {
   const [stanteFilter, setStanteFilter] = useState('Global');
 
   const filteredProducts = products.filter(p => {
