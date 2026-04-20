@@ -35,7 +35,8 @@ import {
   Settings,
   AlertTriangle,
   RotateCcw,
-  Trash2
+  Trash2,
+  Edit
 } from 'lucide-react';
 import { format, startOfMonth, isToday, isThisWeek, isThisMonth, isWithinInterval, startOfDay, endOfDay, subDays } from 'date-fns';
 import { clsx } from 'clsx';
@@ -76,6 +77,7 @@ function App() {
   const [showSale, setShowSale] = useState(false);
   const [showRestock, setShowRestock] = useState(false);
   const [exportData, setExportData] = useState(null); // { title, items, totals }
+  const [editingProduct, setEditingProduct] = useState(null);
 
   // Auth State
   const [token, setToken] = useState(localStorage.getItem('vapo_token'));
@@ -146,6 +148,16 @@ function App() {
   const closeInstallModal = () => {
     localStorage.setItem('pwa_prompt_seen', 'true');
     setShowInstallModal(false);
+  };
+
+  const handleDeleteProduct = async (id) => {
+    if (!window.confirm('¿ELIMINAR PRODUCTO?\n\nEsto borrará permanentemente este producto del inventario de TODAS LAS SUCURSALES. El historial de ventas de este producto se mantendrá, pero aparecerá como "Eliminado".\n\n¿Deseas continuar?')) return;
+    try {
+      await axios.delete(`${API_URL}/products/${id}`);
+      fetchInitialData();
+    } catch(err) {
+      alert(err.response?.data?.message || 'Error al eliminar producto');
+    }
   };
 
   const fetchInitialData = async () => {
@@ -273,6 +285,8 @@ function App() {
                     refresh={fetchInitialData} 
                     onAdd={() => setShowAddProduct(true)}
                     onExport={(data) => setExportData(data)}
+                    onEdit={(p) => setEditingProduct(p)}
+                    onDelete={handleDeleteProduct}
                   />
                 )}
 
@@ -286,6 +300,7 @@ function App() {
       {/* Modals */}
       {showAddStante && <AddStanteModal onClose={() => setShowAddStante(false)} onSuccess={() => { setShowAddStante(false); fetchInitialData(); }} />}
       {showAddProduct && <AddProductModal onClose={() => setShowAddProduct(false)} onSuccess={() => { setShowAddProduct(false); fetchInitialData(); }} />}
+      {editingProduct && <EditProductModal product={editingProduct} onClose={() => setEditingProduct(null)} onSuccess={() => { setEditingProduct(null); fetchInitialData(); }} />}
       {showSale && <SaleModal products={products} stantes={stantes} initialStante={selectedStante?.name} onClose={() => setShowSale(false)} onSuccess={() => { setShowSale(false); fetchInitialData(); }} />}
       {showRestock && <RestockModal products={products} stantes={stantes} initialStante={selectedStante?.name} onClose={() => setShowRestock(false)} onSuccess={() => { setShowRestock(false); fetchInitialData(); }} />}
       {exportData && <ExportModal data={exportData} onClose={() => setExportData(null)} />}
@@ -763,6 +778,10 @@ const InventoryView = ({ products, stantes, refresh, onAdd, onExport }) => {
               <div className="text-right">
                 <div className={clsx("px-3 py-1 rounded-lg text-[10px] font-bold mb-1 w-fit ml-auto", total > 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>{total} STOCK</div>
                 <span className="text-[10px] text-emerald-500 block">Val: Gs. {(p.salesPrice * total).toLocaleString()}</span>
+                <div className="flex justify-end gap-2 mt-2">
+                  <button onClick={() => onEdit(p)} className="p-1.5 glass rounded-lg text-blue-400 hover:bg-blue-500/20" title="Editar Producto"><Edit size={14} /></button>
+                  <button onClick={() => onDelete(p._id)} className="p-1.5 glass rounded-lg text-red-400 hover:bg-red-500/20" title="Eliminar Producto"><Trash2 size={14} /></button>
+                </div>
               </div>
             </div>
           )
@@ -981,6 +1000,58 @@ const AddProductModal = ({ onClose, onSuccess }) => {
   const handleSubmit = async (e) => { e.preventDefault(); try { await axios.post(`${API_URL}/products`, { ...formData, purchasePrice: parseFloat(formData.purchasePrice), salesPrice: parseFloat(formData.salesPrice) }); onSuccess(); } catch (err) { alert('Error'); } };
   return (
     <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e => e.stopPropagation()}><h2 className="text-xl font-bold mb-6">Nuevo Producto</h2><form onSubmit={handleSubmit} className="space-y-4"><div className="form-group"><label>Nombre</label><input autoFocus type="text" className="w-full" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required /></div><div className="grid grid-cols-2 gap-4"><div className="form-group"><label>Precio Compra</label><input type="number" className="w-full" value={formData.purchasePrice} onChange={e => setFormData({...formData, purchasePrice: e.target.value})} required /></div><div className="form-group"><label>Precio Venta</label><input type="number" className="w-full" value={formData.salesPrice} onChange={e => setFormData({...formData, salesPrice: e.target.value})} required /></div></div><button className="btn-primary">Crear</button></form></div></div>
+  )
+}
+
+const EditProductModal = ({ product, onClose, onSuccess }) => {
+  const [formData, setFormData] = useState({ 
+    name: product.name, 
+    purchasePrice: product.purchasePrice || '', 
+    salesPrice: product.salesPrice || '' 
+  });
+  
+  const handleSubmit = async (e) => { 
+    e.preventDefault(); 
+    try { 
+      await axios.put(`${API_URL}/products/${product._id}`, { 
+        name: formData.name,
+        purchasePrice: parseFloat(formData.purchasePrice), 
+        salesPrice: parseFloat(formData.salesPrice) 
+      }); 
+      onSuccess(); 
+    } catch (err) { 
+      alert(err.response?.data?.message || 'Error'); 
+    } 
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={e => e.stopPropagation()}>
+        <h2 className="text-xl font-bold mb-4">Editar Producto</h2>
+        
+        <div className="bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs p-3 rounded-xl mb-6">
+          <strong>Aviso:</strong> Si cambias los precios aquí, esto <strong>solo afectará</strong> a las transferencias y reportes desde este momento en adelante. Las ventas y balances históricos guardados en el historial mantendrán los precios originales intactos.
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="form-group">
+            <label>Nombre</label>
+            <input autoFocus type="text" className="w-full" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="form-group">
+              <label>Precio Compra</label>
+              <input type="number" className="w-full" value={formData.purchasePrice} onChange={e => setFormData({...formData, purchasePrice: e.target.value})} required />
+            </div>
+            <div className="form-group">
+              <label>Precio Venta</label>
+              <input type="number" className="w-full" value={formData.salesPrice} onChange={e => setFormData({...formData, salesPrice: e.target.value})} required />
+            </div>
+          </div>
+          <button className="btn-primary">Guardar Cambios</button>
+        </form>
+      </div>
+    </div>
   )
 }
 
