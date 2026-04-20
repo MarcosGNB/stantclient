@@ -25,9 +25,10 @@ import {
   EyeOff,
   Smartphone,
   Share,
-  PlusSquare
+  PlusSquare,
+  Search
 } from 'lucide-react';
-import { format, startOfMonth, isToday, isThisWeek, isThisMonth } from 'date-fns';
+import { format, startOfMonth, isToday, isThisWeek, isThisMonth, isWithinInterval, startOfDay, endOfDay, subDays } from 'date-fns';
 import { clsx } from 'clsx';
 import { exportComponent } from './utils/exportUtils';
 
@@ -334,7 +335,9 @@ const StanteDetailView = ({ stante, products, onBack, onSell, onRestock, onExpor
 const GlobalReportsView = ({ stantes, onExport }) => {
   const [sales, setSales] = useState([]);
   const [stanteFilter, setStanteFilter] = useState('Global');
-  const [timeFilter, setTimeFilter] = useState('Semana'); // Hoy, Semana, Mes, Todo
+  const [timeFilter, setTimeFilter] = useState('Semana'); // Hoy, Semana, Mes, Todo, Personalizado
+  const [customStart, setCustomStart] = useState(format(subDays(new Date(), 30), 'yyyy-MM-dd'));
+  const [customEnd, setCustomEnd] = useState(format(new Date(), 'yyyy-MM-dd'));
 
   useEffect(() => {
     const fetchGlobal = async () => {
@@ -347,10 +350,17 @@ const GlobalReportsView = ({ stantes, onExport }) => {
   const filteredSales = sales.filter(s => {
     const matchesStante = stanteFilter === 'Global' || s.stante === stanteFilter;
     const saleDate = new Date(s.createdAt);
+    
     let matchesTime = true;
     if (timeFilter === 'Hoy') matchesTime = isToday(saleDate);
     else if (timeFilter === 'Semana') matchesTime = isThisWeek(saleDate);
     else if (timeFilter === 'Mes') matchesTime = isThisMonth(saleDate);
+    else if (timeFilter === 'Personalizado') {
+      matchesTime = isWithinInterval(saleDate, {
+        start: startOfDay(new Date(customStart + 'T00:00:00')),
+        end: endOfDay(new Date(customEnd + 'T23:59:59'))
+      });
+    }
     return matchesStante && matchesTime;
   });
 
@@ -360,8 +370,12 @@ const GlobalReportsView = ({ stantes, onExport }) => {
   };
 
   const handleExport = () => {
+    const title = timeFilter === 'Personalizado' 
+      ? `Reporte ${customStart}_a_${customEnd}`
+      : `Reporte ${timeFilter}`;
+
     onExport({
-      title: `Reporte ${timeFilter} - ${stanteFilter}`,
+      title: `${title} - ${stanteFilter}`,
       mode: 'history',
       items: filteredSales.map(s => ({
         name: s.product?.name || 'Eliminado',
@@ -382,34 +396,30 @@ const GlobalReportsView = ({ stantes, onExport }) => {
       </div>
 
       <div className="filter-scroll mb-2">
-        <button 
-          onClick={() => setStanteFilter('Global')}
-          className={clsx("filter-chip", stanteFilter === 'Global' && "active")}
-        >
-          GLOBAL
-        </button>
+        <button onClick={() => setStanteFilter('Global')} className={clsx("filter-chip", stanteFilter === 'Global' && "active")}>GLOBAL</button>
         {stantes.map(s => (
-          <button 
-            key={s._id} 
-            onClick={() => setStanteFilter(s.name)}
-            className={clsx("filter-chip", stanteFilter === s.name && "active")}
-          >
-            {s.name}
-          </button>
+          <button key={s._id} onClick={() => setStanteFilter(s.name)} className={clsx("filter-chip", stanteFilter === s.name && "active")}>{s.name}</button>
         ))}
       </div>
 
-      <div className="time-segment">
-        {['Hoy', 'Semana', 'Mes', 'Todo'].map(t => (
-          <button 
-            key={t}
-            onClick={() => setTimeFilter(t)}
-            className={clsx("time-btn", timeFilter === t && "active")}
-          >
-            {t}
-          </button>
+      <div className="time-segment mb-4">
+        {['Hoy', 'Semana', 'Mes', 'Todo', 'Personalizado'].map(t => (
+          <button key={t} onClick={() => setTimeFilter(t)} className={clsx("time-btn", timeFilter === t && "active")}>{t}</button>
         ))}
       </div>
+
+      {timeFilter === 'Personalizado' && (
+        <div className="grid grid-cols-2 gap-3 mb-6 p-4 glass rounded-[20px] animate-slide-up">
+          <div className="form-group">
+            <label className="text-[10px] text-slate-500 uppercase font-black mb-2 block">Desde</label>
+            <input type="date" className="w-full bg-white/5 border-white/10 rounded-xl py-2 px-3 text-xs" value={customStart} onChange={e => setCustomStart(e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="text-[10px] text-slate-500 uppercase font-black mb-2 block">Hasta</label>
+            <input type="date" className="w-full bg-white/5 border-white/10 rounded-xl py-2 px-3 text-xs" value={customEnd} onChange={e => setCustomEnd(e.target.value)} />
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-3 mb-8">
         <div className="card bg-emerald-500/5 border-emerald-500/10">
@@ -557,42 +567,150 @@ const InventoryView = ({ products, refresh, onAdd }) => (
 );
 
 /* EXISTING MODALS (Keep but cleaner) */
-const SaleModal = ({ products, stantes, initialStante, onClose, onSuccess }) => {
+function SaleModal({ products, stantes, initialStante, onClose, onSuccess }) {
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedProd, setSelectedProd] = useState('');
   const [selectedStante, setSelectedStante] = useState(initialStante || '');
   const [quantity, setQuantity] = useState(1);
+
+  const filteredProducts = products.filter(p => 
+    p.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   const handleSale = async (e) => {
     e.preventDefault();
     try { await axios.post(`${API_URL}/sales`, { productId: selectedProd, stante: selectedStante, quantity }); onSuccess(); }
     catch (err) { alert(err.response?.data?.message || 'Error'); }
   };
+
   return (
-    <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e => e.stopPropagation()}><h2 className="text-xl font-bold mb-6">Vender</h2><form onSubmit={handleSale} className="space-y-4">
-      <div className="form-group"><label>Producto</label><select className="w-full" value={selectedProd} onChange={e => setSelectedProd(e.target.value)} required><option value="">Seleccionar...</option>{products.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}</select></div>
-      <div className="form-group"><label>Sucursal</label><select className="w-full" value={selectedStante} onChange={e => setSelectedStante(e.target.value)} required disabled={!!initialStante}>{stantes.map(s => <option key={s._id} value={s.name}>{s.name}</option>)}</select></div>
-      <div className="form-group"><label>Cantidad</label><input type="number" className="w-full text-center text-xl font-bold" value={quantity} onChange={e => setQuantity(parseInt(e.target.value))} min="1" required /></div>
-      <button className="btn-primary mt-4">Confirmar Venta</button>
-    </form></div></div>
-  )
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content !max-w-md" onClick={e => e.stopPropagation()}>
+        <h2 className="text-xl font-bold mb-6">Vender Producto</h2>
+        
+        <form onSubmit={handleSale} className="space-y-6">
+          <div className="form-group">
+            <label className="text-[10px] uppercase font-black text-slate-500 tracking-widest mb-2 block">1. Elegir Producto</label>
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-3 text-slate-500" size={18} />
+              <input 
+                type="text" 
+                placeholder="Buscar por nombre..." 
+                className="w-full pl-10 h-12 bg-white/5 border-white/10 rounded-xl text-sm"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+            </div>
+            
+            <div className="max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+              {filteredProducts.map(p => (
+                <div 
+                  key={p._id} 
+                  onClick={() => setSelectedProd(p._id)}
+                  className={clsx(
+                    "p-3 rounded-xl border transition-all cursor-pointer flex justify-between items-center",
+                    selectedProd === p._id ? "bg-blue-600/20 border-blue-500/50" : "bg-white/5 border-transparent grayscale opacity-70"
+                  )}
+                >
+                  <span className="text-sm font-bold">{p.name}</span>
+                  <span className="text-xs text-blue-400 font-bold">Gs. {p.salesPrice.toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="form-group">
+              <label>Sucursal</label>
+              <select className="w-full h-12" value={selectedStante} onChange={e => setSelectedStante(e.target.value)} required disabled={!!initialStante}>
+                <option value="">Sucursal...</option>
+                {stantes.map(s => <option key={s._id} value={s.name}>{s.name}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Cantidad</label>
+              <input type="number" className="w-full h-12 text-center text-lg font-bold" value={quantity} onChange={e => setQuantity(parseInt(e.target.value))} min="1" required />
+            </div>
+          </div>
+
+          <button className="btn-primary w-full h-14 text-sm font-black tracking-widest shadow-xl shadow-blue-900/20">
+            CONFIRMAR VENTA
+          </button>
+        </form>
+      </div>
+    </div>
+  );
 }
 
-const RestockModal = ({ products, stantes, initialStante, onClose, onSuccess }) => {
+function RestockModal({ products, stantes, initialStante, onClose, onSuccess }) {
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedProd, setSelectedProd] = useState('');
   const [selectedStante, setSelectedStante] = useState(initialStante || '');
   const [quantity, setQuantity] = useState(1);
+
+  const filteredProducts = products.filter(p => 
+    p.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   const handleRestock = async (e) => {
     e.preventDefault();
     try { await axios.post(`${API_URL}/restocks`, { productId: selectedProd, stante: selectedStante, quantity }); onSuccess(); }
     catch (err) { alert('Error'); }
   };
+
   return (
-    <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e => e.stopPropagation()}><h2 className="text-xl font-bold mb-6">Reponer</h2><form onSubmit={handleRestock} className="space-y-4">
-      <div className="form-group"><label>Producto</label><select className="w-full" value={selectedProd} onChange={e => setSelectedProd(e.target.value)} required><option value="">Seleccionar...</option>{products.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}</select></div>
-      <div className="form-group"><label>Sucursal</label><select className="w-full" value={selectedStante} onChange={e => setSelectedStante(e.target.value)} required disabled={!!initialStante}>{stantes.map(s => <option key={s._id} value={s.name}>{s.name}</option>)}</select></div>
-      <div className="form-group"><label>Cantidad</label><input type="number" className="w-full text-center text-xl font-bold" value={quantity} onChange={e => setQuantity(parseInt(e.target.value))} min="1" required /></div>
-      <button className="btn-primary mt-4">Guardar</button>
-    </form></div></div>
-  )
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content !max-w-md" onClick={e => e.stopPropagation()}>
+        <h2 className="text-xl font-bold mb-6">Reponer Stock</h2>
+        <form onSubmit={handleRestock} className="space-y-6">
+          <div className="form-group">
+            <label className="text-[10px] uppercase font-black text-slate-500 tracking-widest mb-2 block">1. Seleccionar Producto</label>
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-3 text-slate-500" size={18} />
+              <input 
+                type="text" 
+                placeholder="Buscar por nombre..." 
+                className="w-full pl-10 h-12 bg-white/5 border-white/10 rounded-xl text-sm"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="max-h-40 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+              {filteredProducts.map(p => (
+                <div 
+                  key={p._id} 
+                  onClick={() => setSelectedProd(p._id)}
+                  className={clsx(
+                    "p-3 rounded-xl border transition-all cursor-pointer flex justify-between items-center",
+                    selectedProd === p._id ? "bg-emerald-600/20 border-emerald-500/50" : "bg-white/5 border-transparent grayscale opacity-70"
+                  )}
+                >
+                  <span className="text-sm font-bold">{p.name}</span>
+                  <span className="text-xs text-emerald-400 font-bold">{Object.values(p.stock || {}).reduce((a,b)=>a+b,0)} und.</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+             <div className="form-group">
+               <label>Sucursal</label>
+               <select className="w-full h-12" value={selectedStante} onChange={e => setSelectedStante(e.target.value)} required disabled={!!initialStante}>
+                 {stantes.map(s => <option key={s._id} value={s.name}>{s.name}</option>)}
+               </select>
+             </div>
+             <div className="form-group">
+               <label>Cantidad</label>
+               <input type="number" className="w-full h-12 text-center text-lg font-bold" value={quantity} onChange={e => setQuantity(parseInt(e.target.value))} min="1" required />
+             </div>
+          </div>
+          <button className="btn-primary w-full h-14 bg-emerald-600 hover:bg-emerald-500 text-sm font-black tracking-widest shadow-xl shadow-emerald-900/20">
+            GUARDAR REPOSICIÓN
+          </button>
+        </form>
+      </div>
+    </div>
+  );
 }
 
 const AddStanteModal = ({ onClose, onSuccess }) => {
