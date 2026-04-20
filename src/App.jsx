@@ -779,7 +779,7 @@ function SaleModal({ products, stantes, initialStante, onClose, onSuccess }) {
             </div>
             <div className="form-group">
               <label>Cantidad</label>
-              <input type="number" className="w-full h-12 text-center text-lg font-bold" value={quantity} onChange={e => setQuantity(parseInt(e.target.value))} min="1" required />
+              <input type="number" className="w-full h-12 text-center text-lg font-bold" value={quantity} onChange={e => { const v = parseInt(e.target.value); setQuantity(isNaN(v) ? '' : v); }} min="1" required />
             </div>
           </div>
 
@@ -867,7 +867,7 @@ function RestockModal({ products, stantes, initialStante, onClose, onSuccess }) 
              </div>
              <div className="form-group">
                <label>Cantidad</label>
-               <input type="number" className="w-full h-12 text-center text-lg font-bold" value={quantity} onChange={e => setQuantity(parseInt(e.target.value))} min="1" required />
+               <input type="number" className="w-full h-12 text-center text-lg font-bold" value={quantity} onChange={e => { const v = parseInt(e.target.value); setQuantity(isNaN(v) ? '' : v); }} min="1" required />
              </div>
           </div>
           <button 
