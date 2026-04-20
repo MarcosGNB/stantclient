@@ -844,8 +844,15 @@ function RestockModal({ products, stantes, initialStante, onClose, onSuccess }) 
                     }}
                     className="p-3 rounded-xl border transition-all cursor-pointer flex justify-between items-center bg-white/5 border-transparent hover:bg-white/10"
                   >
-                    <span className="text-sm font-bold">{p.name}</span>
-                    <span className="text-xs text-emerald-400 font-bold">{Object.values(p.stock || {}).reduce((a,b)=>a+b,0)} und.</span>
+                    <div>
+                      <span className="text-sm font-bold block">{p.name}</span>
+                      {selectedStante && (
+                        <span className="text-[10px] text-blue-400 font-medium">
+                          Actual: {p.stock[selectedStante] || 0} und.
+                        </span>
+                      )}
+                    </div>
+                    {!selectedStante && <span className="text-xs text-emerald-400 font-bold">Global: {Object.values(p.stock || {}).reduce((a,b)=>a+b,0)} und.</span>}
                   </div>
                 ))}
                 {filteredProducts.length === 0 && (
