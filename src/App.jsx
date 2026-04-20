@@ -236,7 +236,7 @@ function App() {
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-4">
               <div className="w-8 h-8 bg-white/5 rounded-xl flex items-center justify-center p-1 relative overflow-hidden group">
-                <img src="/logo.png" alt="Logo" className="w-full h-full object-contain p-0.5" />
+                <img src="/logo.svg" alt="Logo" className="w-full h-full object-contain p-0.5" />
                 <div className="absolute inset-0 bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
               <div onClick={handleLogout} className="cursor-pointer group">
@@ -717,7 +717,7 @@ const ExportModal = ({ data, onClose }) => {
         <div className="export-hidden-container">
           <div id="export-ticket" className="ticket-template">
             <div className="ticket-header">
-              <img src="/logo.png" alt="Logo" className="ticket-logo" crossOrigin="anonymous" />
+              <img src="/logo.svg" alt="Logo" className="ticket-logo" crossOrigin="anonymous" />
               <h1 style={{fontSize: '24px', margin: '0'}}>MGNB</h1>
               <p style={{fontSize: '12px', color: '#64748b', margin: '5px 0 0'}}>{data.title}</p>
               <p style={{fontSize: '10px', color: '#94a3b8', marginTop: '10px'}}>{format(new Date(), 'dd/MM/yyyy HH:mm')}</p>
@@ -1353,7 +1353,7 @@ function PWAInstallModal({ isIOS, onInstall }) {
       <div className="pwa-content">
         <div className="bg-black/40 p-4 rounded-3xl border border-white/5 shadow-2xl backdrop-blur-xl mx-auto w-fit mb-6 ring-1 ring-white/10 relative">
           <div className="absolute inset-0 bg-blue-500/20 blur-xl rounded-full" />
-          <img src="/logo.png" alt="logo" className="w-10 h-10 object-contain brightness-110 relative z-10" />
+          <img src="/logo.svg" alt="logo" className="w-10 h-10 object-contain brightness-110 relative z-10" />
         </div>
         <h1 className="text-3xl font-black text-center mb-2 tracking-tight">MGNB</h1>
         
