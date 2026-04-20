@@ -148,6 +148,7 @@ function App() {
     localStorage.setItem('vapo_token', data.token);
     localStorage.setItem('vapo_user', JSON.stringify(data.user));
     setIsBlocked(false);
+    if (data.user.role === 'admin') setActiveTab('admin');
   };
 
   const handleLogout = () => {
@@ -184,7 +185,7 @@ function App() {
             </div>
             <div className="flex gap-2">
                {user?.role === 'admin' ? (
-                  <button onClick={() => setActiveTab('admin')} className={clsx("p-2 glass rounded-xl", activeTab === 'admin' ? "text-blue-500" : "text-white/50")}><ShieldCheck size={20} /></button>
+                  <button onClick={handleLogout} className="p-2 glass rounded-xl text-red-400" title="Cerrar Sesión"><LogOut size={20} /></button>
                ) : (
                   <>
                     <button onClick={() => setShowAddStante(true)} className="p-2 glass rounded-xl text-blue-400"><Store size={20} /></button>
@@ -269,14 +270,11 @@ function App() {
       )}
 
       {/* Navigation */}
-      {!selectedStante && (
+      {!selectedStante && user?.role !== 'admin' && (
         <nav className="fixed bottom-0 left-0 right-0 max-w-[500px] mx-auto glass border-t border-white/10 rounded-t-3xl px-6 py-4 flex justify-between items-center z-50">
           <NavButton active={activeTab === 'dashboard'} icon={<Store size={24} />} label="Panel" onClick={() => setActiveTab('dashboard')} />
           <NavButton active={activeTab === 'products'} icon={<Package size={24} />} label="Productos" onClick={() => setActiveTab('products')} />
           <NavButton active={activeTab === 'reports'} icon={<BarChart3 size={24} />} label="Negocio" onClick={() => setActiveTab('reports')} />
-          {user?.role === 'admin' && (
-             <NavButton active={activeTab === 'admin'} icon={<ShieldCheck size={24} />} label="Admin" onClick={() => setActiveTab('admin')} />
-          )}
         </nav>
       )}
     </div>
@@ -826,7 +824,6 @@ const AddProductModal = ({ onClose, onSuccess }) => {
 }
 
 function LoginView({ onLogin }) {
-  const [isRegister, setIsRegister] = useState(false);
   const [formData, setFormData] = useState({ username: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -836,8 +833,7 @@ function LoginView({ onLogin }) {
     setLoading(true);
     setError('');
     try {
-      const endpoint = isRegister ? 'register' : 'login';
-      const res = await axios.post(`${API_URL}/auth/${endpoint}`, formData);
+      const res = await axios.post(`${API_URL}/auth/login`, formData);
       onLogin(res.data);
     } catch (err) {
       setError(err.response?.data?.message || 'Error en la conexión');
@@ -898,18 +894,11 @@ function LoginView({ onLogin }) {
             disabled={loading}
             className="w-full h-14 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-black text-sm tracking-widest rounded-2xl transition-all shadow-xl shadow-blue-900/20 mt-2"
           >
-            {loading ? 'CARGANDO...' : (isRegister ? 'CREAR CUENTA' : 'ENTRAR AL SISTEMA')}
+            {loading ? 'CARGANDO...' : 'ENTRAR AL SISTEMA'}
           </button>
 
-          <p className="text-center text-[10px] font-bold text-slate-500 pt-4">
-            {isRegister ? '¿YA TIENES CUENTA?' : '¿NUEVO CLIENTE?'} {' '}
-            <button 
-              type="button" 
-              onClick={() => setIsRegister(!isRegister)}
-              className="text-blue-500 hover:underline ml-1"
-            >
-              {isRegister ? 'INICIA SESIÓN' : 'REGÍSTRATE AQUÍ'}
-            </button>
+          <p className="text-center text-[10px] font-bold text-slate-600 pt-6 uppercase tracking-widest">
+            MGNB SOFTWARE SOLUTIONS
           </p>
         </form>
       </div>
@@ -939,6 +928,8 @@ function LicenseBlockedView() {
 function AdminPanelView() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showAddUser, setShowAddUser] = useState(false);
+  const [newUser, setNewUser] = useState({ username: '', password: '' });
 
   const fetchUsers = async () => {
     try {
@@ -950,6 +941,17 @@ function AdminPanelView() {
 
   useEffect(() => { fetchUsers(); }, []);
 
+  const handleAddUser = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post(`${API_URL}/admin/users`, newUser);
+      setNewUser({ username: '', password: '' });
+      setShowAddUser(false);
+      fetchUsers();
+      alert('Usuario creado correctamente');
+    } catch (err) { alert('Error al crear usuario'); }
+  };
+
   const toggleStatus = async (id) => {
     try {
       await axios.patch(`${API_URL}/admin/users/${id}/status`);
@@ -958,7 +960,7 @@ function AdminPanelView() {
   };
 
   const deleteUser = async (id) => {
-    if (!confirm('¿ESTÁS SEGURO? Se borrarán TODOS los datos comercial de este usuario para siempre.')) return;
+    if (!confirm('¿ESTÁS SEGURO? Se borrarán TODOS los datos de este usuario.')) return;
     try {
       await axios.delete(`${API_URL}/admin/users/${id}`);
       fetchUsers();
@@ -972,10 +974,42 @@ function AdminPanelView() {
           <h2 className="text-2xl font-black">ADMINISTRADOR</h2>
           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Gestión de Licencias MGNB</p>
         </div>
-        <div className="w-12 h-12 glass rounded-2xl flex items-center justify-center text-blue-500">
-          <Settings size={24} />
-        </div>
+        <button 
+          onClick={() => setShowAddUser(!showAddUser)}
+          className={clsx("w-12 h-12 glass rounded-2xl flex items-center justify-center transition-all", showAddUser ? "text-red-400" : "text-blue-500")}
+        >
+          {showAddUser ? <X size={24} /> : <PlusCircle size={24} />}
+        </button>
       </div>
+
+      {showAddUser && (
+        <div className="glass p-6 rounded-[24px] border-blue-500/20 mb-8 animate-slide-up">
+          <h3 className="text-xs font-black uppercase tracking-widest mb-6">Nuevo Usuario Comercial</h3>
+          <form onSubmit={handleAddUser} className="space-y-4">
+            <div className="form-group sm-group">
+              <label>Usuario</label>
+              <input 
+                type="text" 
+                className="w-full h-10" 
+                value={newUser.username} 
+                onChange={e => setNewUser({...newUser, username: e.target.value})} 
+                required 
+              />
+            </div>
+            <div className="form-group sm-group">
+              <label>Contraseña Inicial</label>
+              <input 
+                type="password" 
+                className="w-full h-10" 
+                value={newUser.password} 
+                onChange={e => setNewUser({...newUser, password: e.target.value})} 
+                required 
+              />
+            </div>
+            <button className="btn-primary w-full h-12 mt-2 text-xs">CREAR LICENCIA</button>
+          </form>
+        </div>
+      )}
 
       <div className="space-y-4">
         {users.map(u => (
@@ -989,7 +1023,6 @@ function AdminPanelView() {
                 )}>
                   {u.status}
                 </span>
-                {u.role === 'admin' && <ShieldCheck size={14} className="text-blue-500" />}
               </div>
               <p className="text-[10px] text-slate-500 mt-1 font-bold">Desde: {format(new Date(u.createdAt), 'dd MMMM, yyyy')}</p>
             </div>
@@ -997,7 +1030,7 @@ function AdminPanelView() {
             <div className="flex gap-2">
               <button 
                 onClick={() => toggleStatus(u._id)}
-                title={u.status === 'active' ? 'Bloquear Licencia' : 'Activar Licencia'}
+                title={u.status === 'active' ? 'Bloquear' : 'Activar'}
                 className={clsx(
                   "w-10 h-10 rounded-xl flex items-center justify-center transition-all",
                   u.status === 'active' ? "bg-red-500/10 text-red-500 hover:bg-red-500/20" : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
@@ -1016,10 +1049,6 @@ function AdminPanelView() {
             </div>
           </div>
         ))}
-
-        {users.length === 0 && !loading && (
-          <div className="text-center py-20 text-slate-600 italic text-sm">No se encontraron clientes</div>
-        )}
       </div>
     </div>
   );
