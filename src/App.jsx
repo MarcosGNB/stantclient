@@ -41,7 +41,7 @@ import { format, startOfMonth, isToday, isThisWeek, isThisMonth, isWithinInterva
 import { clsx } from 'clsx';
 import { exportComponent } from './utils/exportUtils';
 
-const API_URL = window.location.hostname === 'localhost' 
+const API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
   ? 'http://localhost:5000/api' 
   : 'https://serverstant.onrender.com/api';
 
@@ -167,6 +167,8 @@ function App() {
     setUser(data.user);
     localStorage.setItem('vapo_token', data.token);
     localStorage.setItem('vapo_user', JSON.stringify(data.user));
+    // Importante: Actualizar el header global inmediatamente
+    axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
     setIsBlocked(false);
     if (data.user.role === 'admin') setActiveTab('admin');
   };
@@ -176,8 +178,6 @@ function App() {
     setUser(null);
     localStorage.removeItem('vapo_token');
     localStorage.removeItem('vapo_user');
-    delete axios.defaults.headers.common['Authorization'];
-    setActiveTab('dashboard');
   };
 
   if (!token) return <LoginView onLogin={handleLogin} />;
