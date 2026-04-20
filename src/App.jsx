@@ -267,7 +267,12 @@ function App() {
                 )}
                 
                 {activeTab === 'products' && (
-                  <InventoryView products={products} refresh={fetchInitialData} onAdd={() => setShowAddProduct(true)} />
+                  <InventoryView 
+                    products={products} 
+                    refresh={fetchInitialData} 
+                    onAdd={() => setShowAddProduct(true)}
+                    onExport={(data) => setExportData(data)}
+                  />
                 )}
 
                 {activeTab === 'reports' && <GlobalReportsView stantes={stantes} onExport={(data) => setExportData(data)} />}
@@ -687,16 +692,46 @@ const QuickButton = ({ icon, label, color, onClick }) => (
   </button>
 );
 
-const InventoryView = ({ products, refresh, onAdd }) => (
-  <div className="animate-fade">
-    <div className="flex justify-between items-center mb-6 px-2"><h2 className="text-xl font-bold">Inventario Global</h2><button onClick={onAdd} className="bg-emerald-600 p-2 rounded-xl text-white"><Plus size={20} /></button></div>
-    <div className="grid gap-3">{products.map(p => {
-        const total = Object.values(p.stock || {}).reduce((a,b) => a+b, 0);
-        return (<div key={p._id} className="glass p-4 rounded-2xl flex justify-between items-center"><div><h3 className="font-bold text-sm">{p.name}</h3><p className="text-xs text-blue-400 font-bold mt-1">Gs. {p.salesPrice.toLocaleString()}</p></div><div className={clsx("px-3 py-1 rounded-lg text-[10px] font-bold", total > 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>{total} STOCK</div></div>)
-      })}
+const InventoryView = ({ products, refresh, onAdd, onExport }) => {
+  const handleExport = () => {
+    const stockItems = products.map(p => {
+      const globalStock = Object.values(p.stock || {}).reduce((a, b) => a + b, 0);
+      return {
+        name: p.name,
+        quantity: globalStock,
+        price: p.salesPrice,
+        total: p.salesPrice * globalStock,
+        profit: (p.salesPrice - p.purchasePrice) * globalStock // Optional detailed profit if needed
+      };
+    });
+
+    const totalValuation = stockItems.reduce((a, b) => a + b.total, 0);
+
+    onExport({
+      title: 'Inventario Global Completo',
+      mode: 'stock',
+      items: stockItems,
+      totals: { totalRevenue: totalValuation } 
+    });
+  };
+
+  return (
+    <div className="animate-fade">
+      <div className="flex justify-between items-center mb-6 px-2">
+        <h2 className="text-xl font-bold">Inventario Global</h2>
+        <div className="flex gap-2">
+          <button onClick={handleExport} className="p-2 glass rounded-xl text-blue-400" title="Exportar Reporte"><Share2 size={20} /></button>
+          <button onClick={onAdd} className="bg-emerald-600 p-2 rounded-xl text-white" title="Agregar Producto"><Plus size={20} /></button>
+        </div>
+      </div>
+      <div className="grid gap-3">{products.map(p => {
+          const total = Object.values(p.stock || {}).reduce((a,b) => a+b, 0);
+          return (<div key={p._id} className="glass p-4 rounded-2xl flex justify-between items-center"><div><h3 className="font-bold text-sm">{p.name}</h3><p className="text-xs text-blue-400 font-bold mt-1">Gs. {p.salesPrice.toLocaleString()}</p></div><div className={clsx("px-3 py-1 rounded-lg text-[10px] font-bold", total > 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>{total} STOCK</div></div>)
+        })}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 /* EXISTING MODALS (Keep but cleaner) */
 function SaleModal({ products, stantes, initialStante, onClose, onSuccess }) {
