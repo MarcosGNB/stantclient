@@ -31,7 +31,7 @@ import { format, startOfMonth, isToday, isThisWeek, isThisMonth } from 'date-fns
 import { clsx } from 'clsx';
 import { exportComponent } from './utils/exportUtils';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'https://serverstant.onrender.com/api';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
