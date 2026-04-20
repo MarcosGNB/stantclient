@@ -269,6 +269,7 @@ function App() {
                 {activeTab === 'products' && (
                   <InventoryView 
                     products={products} 
+                    stantes={stantes}
                     refresh={fetchInitialData} 
                     onAdd={() => setShowAddProduct(true)}
                     onExport={(data) => setExportData(data)}
@@ -357,6 +358,7 @@ const StanteDetailView = ({ stante, products, onBack, onSell, onRestock, onExpor
       name: p.name,
       quantity: p.stock[stante.name],
       price: p.salesPrice,
+      purchasePrice: p.purchasePrice,
       total: p.salesPrice * p.stock[stante.name]
     }));
     
@@ -652,8 +654,9 @@ const ExportModal = ({ data, onClose }) => {
                 <tr>
                   <th>Producto</th>
                   <th>Cant</th>
-                  <th>Precio</th>
-                  <th>Total</th>
+                  {data.mode === 'stock' && <th>P.Cmpra</th>}
+                  <th>P.Vta</th>
+                  <th>Total Vta</th>
                   {data.mode === 'history' && showProfit && <th>Gan</th>}
                 </tr>
               </thead>
@@ -662,6 +665,7 @@ const ExportModal = ({ data, onClose }) => {
                   <tr key={i}>
                     <td>{item.name}</td>
                     <td>{item.quantity}</td>
+                    {data.mode === 'stock' && <td>Gs. {item.purchasePrice?.toLocaleString() || 0}</td>}
                     <td>Gs. {item.price.toLocaleString()}</td>
                     <td>Gs. {item.total.toLocaleString()}</td>
                     {data.mode === 'history' && showProfit && <td style={{color: '#10b981', fontWeight: 'bold'}}>Gs. {item.profit.toLocaleString()}</td>}
@@ -692,23 +696,36 @@ const QuickButton = ({ icon, label, color, onClick }) => (
   </button>
 );
 
-const InventoryView = ({ products, refresh, onAdd, onExport }) => {
+const InventoryView = ({ products, stantes, refresh, onAdd, onExport }) => {
+  const [stanteFilter, setStanteFilter] = useState('Global');
+
+  const filteredProducts = products.filter(p => {
+    if (stanteFilter === 'Global') return true;
+    return p.stock?.[stanteFilter] !== undefined; // shows all products, or we can just return true to list them all and see 0 stock. Let's list them all to see 0 stock.
+  });
+
   const handleExport = () => {
     const stockItems = products.map(p => {
-      const globalStock = Object.values(p.stock || {}).reduce((a, b) => a + b, 0);
+      const stockVal = stanteFilter === 'Global' 
+        ? Object.values(p.stock || {}).reduce((a, b) => a + b, 0)
+        : (p.stock?.[stanteFilter] || 0);
+        
+      if (stockVal === 0) return null;
+
       return {
         name: p.name,
-        quantity: globalStock,
+        quantity: stockVal,
         price: p.salesPrice,
-        total: p.salesPrice * globalStock,
-        profit: (p.salesPrice - p.purchasePrice) * globalStock // Optional detailed profit if needed
+        purchasePrice: p.purchasePrice,
+        total: p.salesPrice * stockVal,
+        profit: (p.salesPrice - p.purchasePrice) * stockVal
       };
-    });
+    }).filter(Boolean);
 
     const totalValuation = stockItems.reduce((a, b) => a + b.total, 0);
 
     onExport({
-      title: 'Inventario Global Completo',
+      title: `Inventario - ${stanteFilter}`,
       mode: 'stock',
       items: stockItems,
       totals: { totalRevenue: totalValuation } 
@@ -724,9 +741,31 @@ const InventoryView = ({ products, refresh, onAdd, onExport }) => {
           <button onClick={onAdd} className="bg-emerald-600 p-2 rounded-xl text-white" title="Agregar Producto"><Plus size={20} /></button>
         </div>
       </div>
+      
+      <div className="filter-scroll mb-4 px-2">
+        <button onClick={() => setStanteFilter('Global')} className={clsx("filter-chip", stanteFilter === 'Global' && "active")}>GLOBAL</button>
+        {stantes.map(s => (
+          <button key={s._id} onClick={() => setStanteFilter(s.name)} className={clsx("filter-chip", stanteFilter === s.name && "active")}>{s.name}</button>
+        ))}
+      </div>
+
       <div className="grid gap-3">{products.map(p => {
-          const total = Object.values(p.stock || {}).reduce((a,b) => a+b, 0);
-          return (<div key={p._id} className="glass p-4 rounded-2xl flex justify-between items-center"><div><h3 className="font-bold text-sm">{p.name}</h3><p className="text-xs text-blue-400 font-bold mt-1">Gs. {p.salesPrice.toLocaleString()}</p></div><div className={clsx("px-3 py-1 rounded-lg text-[10px] font-bold", total > 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>{total} STOCK</div></div>)
+          const total = stanteFilter === 'Global' ? Object.values(p.stock || {}).reduce((a,b) => a+b, 0) : (p.stock?.[stanteFilter] || 0);
+          return (
+            <div key={p._id} className="glass p-4 rounded-2xl flex justify-between items-center">
+              <div>
+                <h3 className="font-bold text-sm">{p.name}</h3>
+                <div className="flex flex-col mt-1">
+                  <span className="text-xs text-blue-400 font-bold">Venta: Gs. {p.salesPrice.toLocaleString()}</span>
+                  <span className="text-[10px] text-slate-500 font-bold">Compra: Gs. {p.purchasePrice?.toLocaleString() || 0}</span>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className={clsx("px-3 py-1 rounded-lg text-[10px] font-bold mb-1 w-fit ml-auto", total > 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>{total} STOCK</div>
+                <span className="text-[10px] text-emerald-500 block">Val: Gs. {(p.salesPrice * total).toLocaleString()}</span>
+              </div>
+            </div>
+          )
         })}
       </div>
     </div>
