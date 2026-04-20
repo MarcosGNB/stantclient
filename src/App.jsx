@@ -1,0 +1,665 @@
+import React, { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
+import { 
+  BarChart3, 
+  Package, 
+  ShoppingCart, 
+  PlusCircle, 
+  History as HistoryIcon,
+  Plus,
+  Minus,
+  X,
+  Calendar,
+  DollarSign,
+  MapPin,
+  ChevronLeft,
+  Store,
+  TrendingUp,
+  ArrowUpCircle,
+  ArrowDownCircle,
+  Share2,
+  FileText,
+  Image as ImageIcon,
+  Download,
+  Eye,
+  EyeOff,
+  Smartphone,
+  Share,
+  PlusSquare
+} from 'lucide-react';
+import { format, startOfMonth, isToday, isThisWeek, isThisMonth } from 'date-fns';
+import { clsx } from 'clsx';
+import { exportComponent } from './utils/exportUtils';
+
+const API_URL = 'http://localhost:5000/api';
+
+function App() {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [stantes, setStantes] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [selectedStante, setSelectedStante] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [showAddStante, setShowAddStante] = useState(false);
+  const [showAddProduct, setShowAddProduct] = useState(false);
+  const [showSale, setShowSale] = useState(false);
+  const [showRestock, setShowRestock] = useState(false);
+  const [exportData, setExportData] = useState(null); // { title, items, totals }
+
+  // PWA Install State
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [showInstallModal, setShowInstallModal] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+
+  useEffect(() => {
+    fetchInitialData();
+    
+    // Check if iOS
+    const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    setIsIOS(isIOSDevice);
+
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW failed:', err));
+      });
+    }
+
+    // Capture install prompt for Android
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      // Only show modal if not already installed (standalone mode check)
+      if (!window.matchMedia('(display-mode: standalone)').matches && !window.navigator.standalone) {
+        setShowInstallModal(true);
+      }
+    });
+
+    // For iOS, show it if not in standalone
+    if (isIOSDevice && !window.navigator.standalone) {
+      const hasSeenPrompt = localStorage.getItem('pwa_prompt_seen');
+      if (!hasSeenPrompt) {
+        setShowInstallModal(true);
+      }
+    }
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') setDeferredPrompt(null);
+    setShowInstallModal(false);
+  };
+
+  const closeInstallModal = () => {
+    localStorage.setItem('pwa_prompt_seen', 'true');
+    setShowInstallModal(false);
+  };
+
+  const fetchInitialData = async () => {
+    try {
+      const [stRes, prRes] = await Promise.all([
+        axios.get(`${API_URL}/stantes`),
+        axios.get(`${API_URL}/products`)
+      ]);
+      setStantes(stRes.data);
+      setProducts(prRes.data);
+      setLoading(false);
+    } catch (err) { console.error("Error loading data", err); setLoading(false); }
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-[#0f1115] text-white overflow-hidden">
+      {/* Header */}
+      {!selectedStante && (
+        <header className="p-6 pb-2 animate-fade shrink-0">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 glass rounded-2xl overflow-hidden flex-shrink-0 border border-white/10 shadow-lg">
+                <img src="/logo.png" alt="Logo" className="w-full h-full object-contain p-1" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight text-white leading-none">VapoStant</h1>
+                <p className="text-slate-400 text-[10px] uppercase tracking-widest mt-1 font-bold">Gestión PRO</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+               <button onClick={() => setShowAddStante(true)} className="p-2 glass rounded-xl text-blue-400"><Store size={20} /></button>
+               <button onClick={() => setShowAddProduct(true)} className="p-2 glass rounded-xl text-emerald-400"><Package size={20} /></button>
+            </div>
+          </div>
+        </header>
+      )}
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto px-4 py-4 pb-24">
+        {selectedStante ? (
+          <StanteDetailView 
+            stante={selectedStante} 
+            products={products}
+            onBack={() => { setSelectedStante(null); fetchInitialData(); }} 
+            onSell={() => setShowSale(true)}
+            onRestock={() => setShowRestock(true)}
+            onExport={(data) => setExportData(data)}
+          />
+        ) : (
+          <>
+            {activeTab === 'dashboard' && (
+              <div className="animate-fade">
+                <h2 className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-4 px-2">Mis Sucursales</h2>
+                <div className="dashboard-grid">
+                  {stantes.map(s => (
+                    <div key={s._id} className="stante-card" onClick={() => setSelectedStante(s)}>
+                      <div className="stante-icon-wrapper"><Store size={24} /></div>
+                      <div>
+                        <h3 className="font-bold text-sm">{s.name}</h3>
+                        <p className="text-[10px] text-slate-500 flex items-center justify-center gap-1">
+                          <MapPin size={8} /> {s.location || 'Sucursal'}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="stante-card bg-transparent border-dashed border-white/10" onClick={() => setShowAddStante(true)}>
+                    <Plus size={24} className="text-slate-600" />
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {activeTab === 'products' && (
+              <InventoryView products={products} refresh={fetchInitialData} onAdd={() => setShowAddProduct(true)} />
+            )}
+
+            {activeTab === 'reports' && <GlobalReportsView stantes={stantes} onExport={(data) => setExportData(data)} />}
+          </>
+        )}
+      </main>
+
+      {/* Modals */}
+      {showAddStante && <AddStanteModal onClose={() => setShowAddStante(false)} onSuccess={() => { setShowAddStante(false); fetchInitialData(); }} />}
+      {showAddProduct && <AddProductModal onClose={() => setShowAddProduct(false)} onSuccess={() => { setShowAddProduct(false); fetchInitialData(); }} />}
+      {showSale && <SaleModal products={products} stantes={stantes} initialStante={selectedStante?.name} onClose={() => setShowSale(false)} onSuccess={() => { setShowSale(false); fetchInitialData(); }} />}
+      {showRestock && <RestockModal products={products} stantes={stantes} initialStante={selectedStante?.name} onClose={() => setShowRestock(false)} onSuccess={() => { setShowRestock(false); fetchInitialData(); }} />}
+      {exportData && <ExportModal data={exportData} onClose={() => setExportData(null)} />}
+      
+      {/* PWA Install Prompt */}
+      {showInstallModal && (
+        <PWAInstallModal 
+          isIOS={isIOS} 
+          onInstall={handleInstallClick} 
+          onClose={closeInstallModal} 
+        />
+      )}
+
+      {/* Navigation */}
+      {!selectedStante && (
+        <nav className="fixed bottom-0 left-0 right-0 max-w-[500px] mx-auto glass border-t border-white/10 rounded-t-3xl px-6 py-4 flex justify-between items-center z-50">
+          <NavButton active={activeTab === 'dashboard'} icon={<Store size={24} />} label="Panel" onClick={() => setActiveTab('dashboard')} />
+          <NavButton active={activeTab === 'products'} icon={<Package size={24} />} label="Productos" onClick={() => setActiveTab('products')} />
+          <NavButton active={activeTab === 'reports'} icon={<BarChart3 size={24} />} label="Negocio" onClick={() => setActiveTab('reports')} />
+        </nav>
+      )}
+    </div>
+  );
+}
+
+function NavButton({ active, icon, label, onClick }) {
+  return (
+    <button onClick={onClick} className={clsx("flex flex-col items-center gap-1 transition-all duration-300", active ? "text-blue-500 scale-110" : "text-slate-500")}>
+      <div className={clsx("p-1 rounded-xl", active && "bg-blue-500/10")}>{icon}</div>
+      <span className="text-[10px] uppercase font-bold tracking-widest">{label}</span>
+    </button>
+  );
+}
+
+/* --- VIEWS --- */
+
+const StanteDetailView = ({ stante, products, onBack, onSell, onRestock, onExport }) => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [view, setView] = useState('stock');
+
+  useEffect(() => { fetchStanteData(); }, [stante]);
+
+  const fetchStanteData = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/reports/stante/${stante.name}`);
+      setData(res.data);
+      setLoading(false);
+    } catch (err) { console.error(err); setLoading(false); }
+  };
+
+  const handleExport = () => {
+    const exportItems = data.sales.map(s => ({
+      name: s.product?.name || 'Eliminado',
+      quantity: s.quantity,
+      price: s.salesPrice,
+      total: s.total,
+      profit: s.total - (s.purchasePrice * s.quantity)
+    }));
+    onExport({
+      title: `Reporte - ${stante.name}`,
+      mode: 'history',
+      items: exportItems,
+      totals: data.summary
+    });
+  };
+
+  const handleExportStock = () => {
+    const stockItems = products.filter(p => p.stock?.[stante.name] > 0).map(p => ({
+      name: p.name,
+      quantity: p.stock[stante.name],
+      price: p.salesPrice,
+      total: p.salesPrice * p.stock[stante.name]
+    }));
+    
+    const totalValuation = stockItems.reduce((a, b) => a + b.total, 0);
+
+    onExport({
+      title: `Stock Actual - ${stante.name}`,
+      mode: 'stock',
+      items: stockItems,
+      totals: { totalRevenue: totalValuation } // Use totalRevenue for total valuation
+    });
+  };
+
+  if (loading) return <div className="text-center py-20 animate-pulse">Cargando sucursal...</div>;
+
+  return (
+    <div className="animate-fade pb-10">
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center gap-4">
+          <button onClick={onBack} className="p-2 glass rounded-full text-slate-400"><ChevronLeft size={24} /></button>
+          <div><h2 className="text-xl font-bold">{stante.name}</h2><p className="text-xs text-slate-500">{stante.location}</p></div>
+        </div>
+        <button onClick={view === 'stock' ? handleExportStock : handleExport} className="p-2 glass rounded-xl text-blue-400">
+           <Share2 size={20} />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 mb-8">
+        <div className="card border-emerald-500/10 bg-emerald-500/5">
+          <span className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Ganancia neta</span>
+          <div className="text-xl font-bold text-emerald-400">Gs. {data?.summary.totalProfit.toLocaleString()}</div>
+        </div>
+        <div className="card">
+          <span className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Ventas (Total)</span>
+          <div className="text-xl font-bold">Gs. {data?.summary.totalRevenue.toLocaleString()}</div>
+        </div>
+      </div>
+
+      <div className="flex gap-2 p-1 glass rounded-2xl mb-6">
+        <button onClick={() => setView('stock')} className={clsx("flex-1 py-2 rounded-xl text-xs font-bold transition-all", view === 'stock' ? "bg-white/10 text-white" : "text-slate-500")}>INVENTARIO</button>
+        <button onClick={() => setView('history')} className={clsx("flex-1 py-2 rounded-xl text-xs font-bold transition-all", view === 'history' ? "bg-white/10 text-white" : "text-slate-500")}>HISTORIAL</button>
+      </div>
+
+      {view === 'stock' ? (
+        <div className="space-y-4">
+          {products.filter(p => p.stock?.[stante.name] > 0).map(p => (
+            <div key={p._id} className="glass p-4 rounded-2xl flex justify-between items-center border-white/5">
+              <div><h4 className="font-bold text-sm">{p.name}</h4><p className="text-blue-400 text-xs font-bold mt-1">Gs. {p.salesPrice.toLocaleString()}</p></div>
+              <div className="bg-white/5 px-3 py-1 rounded-lg text-xs font-bold text-slate-300">{p.stock[stante.name]} und.</div>
+            </div>
+          ))}
+          <div className="flex gap-3 mt-8">
+             <QuickButton icon={<ShoppingCart size={18} />} label="Vender" color="blue" onClick={onSell} />
+             <QuickButton icon={<PlusCircle size={18} />} label="Reponer" color="emerald" onClick={onRestock} />
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {data?.sales.concat(data?.restocks).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)).map((item, index) => {
+            const isSale = !!item.total;
+            return (
+              <div key={index} className="history-item">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="text-[10px] text-slate-500 block mb-1">{format(new Date(item.createdAt), 'dd MMM, HH:mm')}</span>
+                    <h4 className="text-sm font-bold">{item.product?.name || 'Eliminado'}</h4>
+                    <p className="text-xs text-slate-400">{isSale ? 'Venta' : 'Reposición'}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className={clsx("text-sm font-bold block", isSale ? "text-emerald-400" : "text-blue-400")}>{isSale ? `+Gs. ${item.total.toLocaleString()}` : `+${item.quantity} und`}</span>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const GlobalReportsView = ({ stantes, onExport }) => {
+  const [sales, setSales] = useState([]);
+  const [stanteFilter, setStanteFilter] = useState('Global');
+  const [timeFilter, setTimeFilter] = useState('Semana'); // Hoy, Semana, Mes, Todo
+
+  useEffect(() => {
+    const fetchGlobal = async () => {
+      const res = await axios.get(`${API_URL}/sales`);
+      setSales(res.data);
+    };
+    fetchGlobal();
+  }, []);
+
+  const filteredSales = sales.filter(s => {
+    const matchesStante = stanteFilter === 'Global' || s.stante === stanteFilter;
+    const saleDate = new Date(s.createdAt);
+    let matchesTime = true;
+    if (timeFilter === 'Hoy') matchesTime = isToday(saleDate);
+    else if (timeFilter === 'Semana') matchesTime = isThisWeek(saleDate);
+    else if (timeFilter === 'Mes') matchesTime = isThisMonth(saleDate);
+    return matchesStante && matchesTime;
+  });
+
+  const totals = {
+    totalRevenue: filteredSales.reduce((a, b) => a + b.total, 0),
+    totalProfit: filteredSales.reduce((a, b) => a + (b.total - (b.purchasePrice * b.quantity)), 0)
+  };
+
+  const handleExport = () => {
+    onExport({
+      title: `Reporte ${timeFilter} - ${stanteFilter}`,
+      mode: 'history',
+      items: filteredSales.map(s => ({
+        name: s.product?.name || 'Eliminado',
+        quantity: s.quantity,
+        price: s.salesPrice,
+        total: s.total,
+        profit: s.total - (s.purchasePrice * s.quantity)
+      })),
+      totals
+    });
+  };
+
+  return (
+    <div className="animate-fade">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-bold">Negocio Global</h2>
+        <button onClick={handleExport} className="p-2 glass rounded-xl text-blue-400"><Share2 size={20} /></button>
+      </div>
+
+      <div className="filter-scroll mb-2">
+        <button 
+          onClick={() => setStanteFilter('Global')}
+          className={clsx("filter-chip", stanteFilter === 'Global' && "active")}
+        >
+          GLOBAL
+        </button>
+        {stantes.map(s => (
+          <button 
+            key={s._id} 
+            onClick={() => setStanteFilter(s.name)}
+            className={clsx("filter-chip", stanteFilter === s.name && "active")}
+          >
+            {s.name}
+          </button>
+        ))}
+      </div>
+
+      <div className="time-segment">
+        {['Hoy', 'Semana', 'Mes', 'Todo'].map(t => (
+          <button 
+            key={t}
+            onClick={() => setTimeFilter(t)}
+            className={clsx("time-btn", timeFilter === t && "active")}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid gap-3 mb-8">
+        <div className="card bg-emerald-500/5 border-emerald-500/10">
+          <span className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Ganancia {timeFilter}</span>
+          <div className="text-3xl font-bold text-emerald-400">Gs. {totals.totalProfit.toLocaleString()}</div>
+        </div>
+        <div className="card">
+          <span className="text-[10px] uppercase font-bold text-slate-500 mb-1 block">Ventas {timeFilter}</span>
+          <div className="text-2xl font-bold">Gs. {totals.totalRevenue.toLocaleString()}</div>
+        </div>
+      </div>
+
+      <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">
+        Feed: {stanteFilter} ({timeFilter})
+      </h3>
+      <div className="space-y-4">
+        {filteredSales.slice(0, 20).map(s => (
+          <div key={s._id} className="glass p-4 rounded-xl flex justify-between items-center">
+            <div>
+              <h4 className="font-bold text-sm">{s.product?.name}</h4>
+              <p className="text-[10px] text-slate-500">{s.stante} • {format(new Date(s.createdAt), 'dd/MM/yy')}</p>
+            </div>
+            <div className="text-right">
+              <span className="text-sm font-bold text-emerald-400">+Gs. {s.total.toLocaleString()}</span>
+              <span className="text-[10px] text-slate-600 block">+{s.quantity} und.</span>
+            </div>
+          </div>
+        ))}
+        {filteredSales.length === 0 && (
+          <div className="text-center py-10 text-slate-600 italic text-sm">Sin registros para este filtro</div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const ExportModal = ({ data, onClose }) => {
+  const [formatType, setFormatType] = useState('png'); // png, pdf
+  const [showProfit, setShowProfit] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleExport = async () => {
+    setLoading(true);
+    await exportComponent('export-ticket', formatType, data.title.replace(/\s+/g, '_').toLowerCase());
+    setLoading(false);
+    onClose();
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={e => e.stopPropagation()}>
+        <h2 className="text-xl font-bold mb-6">Exportar Reporte</h2>
+        
+        <div className="space-y-6">
+          <div className="radio-group">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Formato de Archivo</label>
+            <div className={clsx("radio-item", formatType === 'png' && "active")} onClick={() => setFormatType('png')}>
+              <div className="radio-circle" /><ImageIcon size={20} /> <span>Imagen (PNG)</span>
+            </div>
+            <div className={clsx("radio-item", formatType === 'pdf' && "active")} onClick={() => setFormatType('pdf')}>
+              <div className="radio-circle" /><FileText size={20} /> <span>Documento (PDF)</span>
+            </div>
+          </div>
+
+          {data.mode === 'history' && (
+            <div className="radio-group">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Privacidad de Ganancias</label>
+              <div className={clsx("radio-item", !showProfit && "active")} onClick={() => setShowProfit(false)}>
+                <div className="radio-circle" /><EyeOff size={20} /> <span>Ocultar Ganancias</span>
+              </div>
+              <div className={clsx("radio-item", showProfit && "active")} onClick={() => setShowProfit(true)}>
+                <div className="radio-circle" /><Eye size={20} /> <span>Mostrar Ganancias</span>
+              </div>
+            </div>
+          )}
+
+          <button disabled={loading} onClick={handleExport} className="btn-primary flex justify-center items-center gap-2">
+            {loading ? 'Generando...' : <><Download size={20} /> Descargar Reporte</>}
+          </button>
+        </div>
+
+        {/* HIDDEN TICKET TEMPLATE FOR EXPORT */}
+        <div className="export-hidden-container">
+          <div id="export-ticket" className="ticket-template">
+            <div className="ticket-header">
+              <img src="/logo.png" alt="Logo" className="ticket-logo" crossOrigin="anonymous" />
+              <h1 style={{fontSize: '24px', margin: '0'}}>VapoStant</h1>
+              <p style={{fontSize: '12px', color: '#64748b', margin: '5px 0 0'}}>{data.title}</p>
+              <p style={{fontSize: '10px', color: '#94a3b8', marginTop: '10px'}}>{format(new Date(), 'dd/MM/yyyy HH:mm')}</p>
+            </div>
+            <table className="ticket-table">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th>Cant</th>
+                  <th>Precio</th>
+                  <th>Total</th>
+                  {data.mode === 'history' && showProfit && <th>Gan</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {data.items.map((item, i) => (
+                  <tr key={i}>
+                    <td>{item.name}</td>
+                    <td>{item.quantity}</td>
+                    <td>Gs. {item.price.toLocaleString()}</td>
+                    <td>Gs. {item.total.toLocaleString()}</td>
+                    {data.mode === 'history' && showProfit && <td style={{color: '#10b981', fontWeight: 'bold'}}>Gs. {item.profit.toLocaleString()}</td>}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="ticket-footer">
+              <p style={{margin: '0', fontSize: '10px', color: '#64748b'}}>{data.mode === 'stock' ? 'VALORACIÓN TOTAL' : 'TOTAL VENTAS'}</p>
+              <p style={{margin: '5px 0 0', fontSize: '20px', fontWeight: 'bold'}}>Gs.{data.totals.totalRevenue.toLocaleString()}</p>
+              {data.mode === 'history' && showProfit && (
+                <div style={{marginTop: '10px', color: '#10b981'}}>
+                  <p style={{margin: '0', fontSize: '10px'}}>GANANCIA NETA TOTAL</p>
+                  <p style={{margin: '0', fontSize: '16px', fontWeight: 'bold'}}>Gs.{data.totals.totalProfit.toLocaleString()}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const QuickButton = ({ icon, label, color, onClick }) => (
+  <button onClick={onClick} className={clsx("flex-1 p-4 rounded-2xl flex items-center justify-center gap-2 font-bold text-xs uppercase tracking-widest text-white shadow-lg", color === 'blue' ? "bg-blue-600 shadow-blue-900/20" : "bg-emerald-600 shadow-emerald-900/20")}>
+    {icon} {label}
+  </button>
+);
+
+const InventoryView = ({ products, refresh, onAdd }) => (
+  <div className="animate-fade">
+    <div className="flex justify-between items-center mb-6 px-2"><h2 className="text-xl font-bold">Inventario Global</h2><button onClick={onAdd} className="bg-emerald-600 p-2 rounded-xl text-white"><Plus size={20} /></button></div>
+    <div className="grid gap-3">{products.map(p => {
+        const total = Object.values(p.stock || {}).reduce((a,b) => a+b, 0);
+        return (<div key={p._id} className="glass p-4 rounded-2xl flex justify-between items-center"><div><h3 className="font-bold text-sm">{p.name}</h3><p className="text-xs text-blue-400 font-bold mt-1">Gs. {p.salesPrice.toLocaleString()}</p></div><div className={clsx("px-3 py-1 rounded-lg text-[10px] font-bold", total > 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>{total} STOCK</div></div>)
+      })}
+    </div>
+  </div>
+);
+
+/* EXISTING MODALS (Keep but cleaner) */
+const SaleModal = ({ products, stantes, initialStante, onClose, onSuccess }) => {
+  const [selectedProd, setSelectedProd] = useState('');
+  const [selectedStante, setSelectedStante] = useState(initialStante || '');
+  const [quantity, setQuantity] = useState(1);
+  const handleSale = async (e) => {
+    e.preventDefault();
+    try { await axios.post(`${API_URL}/sales`, { productId: selectedProd, stante: selectedStante, quantity }); onSuccess(); }
+    catch (err) { alert(err.response?.data?.message || 'Error'); }
+  };
+  return (
+    <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e => e.stopPropagation()}><h2 className="text-xl font-bold mb-6">Vender</h2><form onSubmit={handleSale} className="space-y-4">
+      <div className="form-group"><label>Producto</label><select className="w-full" value={selectedProd} onChange={e => setSelectedProd(e.target.value)} required><option value="">Seleccionar...</option>{products.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}</select></div>
+      <div className="form-group"><label>Sucursal</label><select className="w-full" value={selectedStante} onChange={e => setSelectedStante(e.target.value)} required disabled={!!initialStante}>{stantes.map(s => <option key={s._id} value={s.name}>{s.name}</option>)}</select></div>
+      <div className="form-group"><label>Cantidad</label><input type="number" className="w-full text-center text-xl font-bold" value={quantity} onChange={e => setQuantity(parseInt(e.target.value))} min="1" required /></div>
+      <button className="btn-primary mt-4">Confirmar Venta</button>
+    </form></div></div>
+  )
+}
+
+const RestockModal = ({ products, stantes, initialStante, onClose, onSuccess }) => {
+  const [selectedProd, setSelectedProd] = useState('');
+  const [selectedStante, setSelectedStante] = useState(initialStante || '');
+  const [quantity, setQuantity] = useState(1);
+  const handleRestock = async (e) => {
+    e.preventDefault();
+    try { await axios.post(`${API_URL}/restocks`, { productId: selectedProd, stante: selectedStante, quantity }); onSuccess(); }
+    catch (err) { alert('Error'); }
+  };
+  return (
+    <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e => e.stopPropagation()}><h2 className="text-xl font-bold mb-6">Reponer</h2><form onSubmit={handleRestock} className="space-y-4">
+      <div className="form-group"><label>Producto</label><select className="w-full" value={selectedProd} onChange={e => setSelectedProd(e.target.value)} required><option value="">Seleccionar...</option>{products.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}</select></div>
+      <div className="form-group"><label>Sucursal</label><select className="w-full" value={selectedStante} onChange={e => setSelectedStante(e.target.value)} required disabled={!!initialStante}>{stantes.map(s => <option key={s._id} value={s.name}>{s.name}</option>)}</select></div>
+      <div className="form-group"><label>Cantidad</label><input type="number" className="w-full text-center text-xl font-bold" value={quantity} onChange={e => setQuantity(parseInt(e.target.value))} min="1" required /></div>
+      <button className="btn-primary mt-4">Guardar</button>
+    </form></div></div>
+  )
+}
+
+const AddStanteModal = ({ onClose, onSuccess }) => {
+  const [name, setName] = useState('');
+  const [location, setLocation] = useState('');
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try { await axios.post(`${API_URL}/stantes`, { name, location }); onSuccess(); } catch (err) { alert('Error'); }
+  };
+  return (
+    <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e => e.stopPropagation()}><h2 className="text-xl font-bold mb-6">Nueva Sucursal</h2><form onSubmit={handleSubmit} className="space-y-4"><div className="form-group"><label>Nombre</label><input autoFocus type="text" className="w-full" value={name} onChange={e => setName(e.target.value)} required /></div><div className="form-group"><label>Ubicación</label><input type="text" className="w-full" value={location} onChange={e => setLocation(e.target.value)} /></div><button className="btn-primary">Crear</button></form></div></div>
+  )
+}
+
+const AddProductModal = ({ onClose, onSuccess }) => {
+  const [formData, setFormData] = useState({ name: '', purchasePrice: '', salesPrice: '' });
+  const handleSubmit = async (e) => { e.preventDefault(); try { await axios.post(`${API_URL}/products`, { ...formData, purchasePrice: parseFloat(formData.purchasePrice), salesPrice: parseFloat(formData.salesPrice) }); onSuccess(); } catch (err) { alert('Error'); } };
+  return (
+    <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e => e.stopPropagation()}><h2 className="text-xl font-bold mb-6">Nuevo Producto</h2><form onSubmit={handleSubmit} className="space-y-4"><div className="form-group"><label>Nombre</label><input autoFocus type="text" className="w-full" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required /></div><div className="grid grid-cols-2 gap-4"><div className="form-group"><label>Precio Compra</label><input type="number" className="w-full" value={formData.purchasePrice} onChange={e => setFormData({...formData, purchasePrice: e.target.value})} required /></div><div className="form-group"><label>Precio Venta</label><input type="number" className="w-full" value={formData.salesPrice} onChange={e => setFormData({...formData, salesPrice: e.target.value})} required /></div></div><button className="btn-primary">Crear</button></form></div></div>
+  )
+}
+
+const PWAInstallModal = ({ isIOS, onInstall, onClose }) => {
+  return (
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade">
+      <div className="w-full max-w-sm bg-[#1e293b] border border-white/10 rounded-[32px] overflow-hidden shadow-2xl animate-slide-up">
+        <div className="p-8 text-center">
+          <div className="w-20 h-20 mx-auto mb-6 bg-blue-500/20 rounded-3xl flex items-center justify-center border border-blue-500/20 shadow-inner">
+            <img src="/logo.png" alt="logo" className="w-12 h-12 object-contain" />
+          </div>
+          
+          <h2 className="text-2xl font-bold mb-2">Instalar VapoStant</h2>
+          <p className="text-slate-400 text-sm mb-8">
+            Instala nuestra app para una experiencia más rápida, fluida y sin bordes.
+          </p>
+
+          {isIOS ? (
+            <div className="space-y-4 text-left bg-white/5 p-6 rounded-2xl border border-white/5">
+              <p className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-4">Instrucciones para iPhone</p>
+              <div className="flex items-center gap-4">
+                <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-sm font-bold">1</div>
+                <p className="text-sm">Toca el botón <span className="bg-white/10 p-1 rounded inline-flex"><Share size={14} /></span> en la barra inferior.</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-sm font-bold">2</div>
+                <p className="text-sm">Desliza hacia abajo y selecciona <span className="font-bold text-white">"Agregar al inicio"</span> <span className="bg-white/10 p-1 rounded inline-flex"><PlusSquare size={14} /></span></p>
+              </div>
+            </div>
+          ) : (
+            <button 
+              onClick={onInstall}
+              className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl transition-all shadow-lg shadow-blue-900/40 flex items-center justify-center gap-2"
+            >
+              <Smartphone size={20} /> Instalar Ahora
+            </button>
+          )}
+
+          <button 
+            onClick={onClose}
+            className="mt-6 text-slate-500 text-sm font-medium hover:text-slate-300 transition-colors"
+          >
+            Quizás más tarde
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default App;
