@@ -43,6 +43,12 @@ import { exportComponent } from './utils/exportUtils';
 
 const API_URL = 'https://serverstant.onrender.com/api';
 
+// Set global axios auth header immediately if token exists
+const initialToken = localStorage.getItem('vapo_token');
+if (initialToken) {
+  axios.defaults.headers.common['Authorization'] = `Bearer ${initialToken}`;
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [stantes, setStantes] = useState([]);
@@ -66,9 +72,7 @@ function App() {
   const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
-    // Configure Axios Interceptor for Auth
     if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       fetchInitialData();
     }
 
