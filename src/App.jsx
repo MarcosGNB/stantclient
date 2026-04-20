@@ -727,7 +727,6 @@ function SaleModal({ products, stantes, initialStante, onClose, onSuccess }) {
             <div className="relative mb-3">
               <Search className="absolute left-3 top-3 text-slate-500" size={18} />
               <input 
-              <input 
                 type="text" 
                 placeholder="Buscar por nombre..." 
                 className="w-full pl-10 h-12 bg-white/5 border-white/10 rounded-xl text-sm"
