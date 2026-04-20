@@ -477,6 +477,9 @@ const GlobalReportsView = ({ stantes, onExport }) => {
     return matchesStante && matchesTime;
   }).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
 
+  const totals = {
+    totalRevenue: filteredSales.filter(i => i.type === 'sale').reduce((a, b) => a + b.total, 0),
+    totalProfit: filteredSales.filter(i => i.type === 'sale').reduce((a, b) => a + (b.total - (b.purchasePrice * b.quantity)), 0)
   };
 
   const handleExport = () => {
