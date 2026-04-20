@@ -418,11 +418,14 @@ const StanteDetailView = ({ stante, products, onBack, onSell, onRestock, onExpor
       total: s.total,
       profit: s.total - (s.purchasePrice * s.quantity)
     }));
+    const currentUser = JSON.parse(localStorage.getItem('vapo_user') || '{}');
     onExport({
       title: `Reporte - ${stante.name}`,
       mode: 'history',
       items: exportItems,
-      totals: data.summary
+      totals: data.summary,
+      userLogoUrl: currentUser.logoUrl || null,
+      brandName: currentUser.username || 'MGNB'
     });
   };
 
@@ -437,11 +440,14 @@ const StanteDetailView = ({ stante, products, onBack, onSell, onRestock, onExpor
     
     const totalValuation = stockItems.reduce((a, b) => a + b.total, 0);
 
+    const currentUser = JSON.parse(localStorage.getItem('vapo_user') || '{}');
     onExport({
       title: `Stock Actual - ${stante.name}`,
       mode: 'stock',
       items: stockItems,
-      totals: { totalRevenue: totalValuation } // Use totalRevenue for total valuation
+      totals: { totalRevenue: totalValuation },
+      userLogoUrl: currentUser.logoUrl || null,
+      brandName: currentUser.username || 'MGNB'
     });
   };
 
@@ -573,6 +579,7 @@ const GlobalReportsView = ({ stantes, onExport }) => {
       ? `Reporte ${customStart}_a_${customEnd}`
       : `Reporte ${timeFilter}`;
 
+    const currentUser = JSON.parse(localStorage.getItem('vapo_user') || '{}');
     onExport({
       title: `${title} - ${stanteFilter}`,
       mode: 'history',
@@ -586,7 +593,9 @@ const GlobalReportsView = ({ stantes, onExport }) => {
           profit: isSale ? (i.total - (i.purchasePrice * i.quantity)) : 0
         };
       }),
-      totals
+      totals,
+      userLogoUrl: currentUser.logoUrl || null,
+      brandName: currentUser.username || 'MGNB'
     });
   };
 
@@ -716,11 +725,18 @@ const ExportModal = ({ data, onClose }) => {
         {/* HIDDEN TICKET TEMPLATE FOR EXPORT */}
         <div className="export-hidden-container">
           <div id="export-ticket" className="ticket-template">
-            <div className="ticket-header">
-              <img src="/logo.svg" alt="Logo" className="ticket-logo" crossOrigin="anonymous" />
-              <h1 style={{fontSize: '24px', margin: '0'}}>MGNB</h1>
+            <div className="ticket-header" style={{position: 'relative'}}>
+              <img src={data.userLogoUrl || '/logo.svg'} alt="Logo" className="ticket-logo" crossOrigin="anonymous" />
+              <h1 style={{fontSize: '24px', margin: '0'}}>{data.brandName || 'MGNB'}</h1>
               <p style={{fontSize: '12px', color: '#64748b', margin: '5px 0 0'}}>{data.title}</p>
               <p style={{fontSize: '10px', color: '#94a3b8', marginTop: '10px'}}>{format(new Date(), 'dd/MM/yyyy HH:mm')}</p>
+              {/* MGNB Watermark */}
+              {data.userLogoUrl && (
+                <div style={{position: 'absolute', bottom: '8px', right: '8px', display: 'flex', alignItems: 'center', gap: '4px', opacity: 0.35}}>
+                  <img src="/logo.svg" alt="mgnb" style={{width: '14px', height: '14px', objectFit: 'contain'}} crossOrigin="anonymous" />
+                  <span style={{fontSize: '8px', fontWeight: 'bold', color: '#94a3b8', letterSpacing: '0.1em'}}>MGNB</span>
+                </div>
+              )}
             </div>
             <table className="ticket-table">
               <thead>
@@ -797,11 +813,14 @@ const InventoryView = ({ products, stantes, refresh, onAdd, onExport, onEdit, on
 
     const totalValuation = stockItems.reduce((a, b) => a + b.total, 0);
 
+    const currentUser = JSON.parse(localStorage.getItem('vapo_user') || '{}');
     onExport({
       title: `Inventario - ${stanteFilter}`,
       mode: 'stock',
       items: stockItems,
-      totals: { totalRevenue: totalValuation } 
+      totals: { totalRevenue: totalValuation },
+      userLogoUrl: currentUser.logoUrl || null,
+      brandName: currentUser.username || 'MGNB'
     });
   };
 
@@ -1219,7 +1238,9 @@ function AdminPanelView() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddUser, setShowAddUser] = useState(false);
-  const [newUser, setNewUser] = useState({ username: '', password: '' });
+  const [newUser, setNewUser] = useState({ username: '', password: '', logoUrl: null });
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [uploadingLogoFor, setUploadingLogoFor] = useState(null);
 
   const fetchUsers = async () => {
     try {
@@ -1235,11 +1256,31 @@ function AdminPanelView() {
     e.preventDefault();
     try {
       await axios.post(`${API_URL}/admin/users`, newUser);
-      setNewUser({ username: '', password: '' });
+      setNewUser({ username: '', password: '', logoUrl: null });
+      setLogoPreview(null);
       setShowAddUser(false);
       fetchUsers();
       alert('Usuario creado correctamente');
     } catch (err) { alert('Error al crear usuario'); }
+  };
+
+  const handleLogoFile = (file, forNew = false, userId = null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64 = e.target.result;
+      if (forNew) {
+        setLogoPreview(base64);
+        setNewUser(prev => ({ ...prev, logoUrl: base64 }));
+      } else {
+        try {
+          await axios.patch(`${API_URL}/admin/users/${userId}/logo`, { logoUrl: base64 });
+          fetchUsers();
+          setUploadingLogoFor(null);
+        } catch(err) { alert('Error al subir logo'); }
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const toggleStatus = async (id) => {
@@ -1276,6 +1317,24 @@ function AdminPanelView() {
         <div className="glass p-6 rounded-[24px] border-blue-500/20 mb-8 animate-slide-up">
           <h3 className="text-xs font-black uppercase tracking-widest mb-6">Nuevo Usuario Comercial</h3>
           <form onSubmit={handleAddUser} className="space-y-4">
+            {/* Logo Upload */}
+            <div className="form-group sm-group">
+              <label>Logo del Negocio (opcional)</label>
+              <label className="flex items-center gap-3 cursor-pointer glass p-3 rounded-xl border border-dashed border-white/20 hover:border-blue-500/50 transition-all">
+                <input type="file" accept="image/*" className="hidden" onChange={e => handleLogoFile(e.target.files[0], true)} />
+                {logoPreview ? (
+                  <img src={logoPreview} alt="preview" className="w-12 h-12 object-contain rounded-lg" />
+                ) : (
+                  <div className="w-12 h-12 bg-white/5 rounded-lg flex items-center justify-center text-slate-500">
+                    <ImageIcon size={22} />
+                  </div>
+                )}
+                <div>
+                  <p className="text-xs font-bold">{logoPreview ? 'Logo cargado ✓' : 'Subir logo del cliente'}</p>
+                  <p className="text-[10px] text-slate-500">PNG, JPG o SVG. Se mostrará en sus reportes.</p>
+                </div>
+              </label>
+            </div>
             <div className="form-group sm-group">
               <label>Usuario</label>
               <input 
@@ -1303,10 +1362,25 @@ function AdminPanelView() {
 
       <div className="space-y-4">
         {users.map(u => (
-          <div key={u._id} className="glass p-5 rounded-[24px] border-white/5 flex justify-between items-center bg-white/2">
-            <div>
-              <div className="flex items-center gap-3">
-                <h3 className="font-bold text-sm tracking-tight">{u.username.toUpperCase()}</h3>
+          <div key={u._id} className="glass p-5 rounded-[24px] border-white/5 flex justify-between items-start bg-white/2">
+            <div className="flex items-center gap-3">
+              {/* User Logo */}
+              <label className="cursor-pointer group relative" title="Cambiar logo">
+                <input type="file" accept="image/*" className="hidden" onChange={e => handleLogoFile(e.target.files[0], false, u._id)} />
+                <div className="w-10 h-10 rounded-xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center">
+                  {u.logoUrl ? (
+                    <img src={u.logoUrl} alt="logo" className="w-full h-full object-contain" />
+                  ) : (
+                    <ImageIcon size={16} className="text-slate-600" />
+                  )}
+                </div>
+                <div className="absolute inset-0 bg-blue-500/30 opacity-0 group-hover:opacity-100 rounded-xl transition-opacity flex items-center justify-center">
+                  <Edit size={10} className="text-white" />
+                </div>
+              </label>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-sm tracking-tight">{u.username.toUpperCase()}</h3>
                 <span className={clsx(
                   "px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider",
                   u.status === 'active' ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-500"
@@ -1315,6 +1389,7 @@ function AdminPanelView() {
                 </span>
               </div>
               <p className="text-[10px] text-slate-500 mt-1 font-bold">Desde: {format(new Date(u.createdAt), 'dd MMMM, yyyy')}</p>
+            </div>
             </div>
             
             <div className="flex gap-2">
