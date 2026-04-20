@@ -1241,6 +1241,8 @@ function AdminPanelView() {
   const [newUser, setNewUser] = useState({ username: '', password: '', logoUrl: null });
   const [logoPreview, setLogoPreview] = useState(null);
   const [uploadingLogoFor, setUploadingLogoFor] = useState(null);
+  const newLogoRef = useRef(null);
+  const userLogoRefs = useRef({});
 
   const fetchUsers = async () => {
     try {
@@ -1320,16 +1322,24 @@ function AdminPanelView() {
             {/* Logo Upload - Square Gallery Button */}
             <div className="form-group sm-group">
               <label>Logo del Negocio (opcional)</label>
-              <label className="block w-16 h-16 cursor-pointer">
-                <input type="file" accept="image/*" className="hidden" onChange={e => handleLogoFile(e.target.files[0], true)} />
-                <div className="w-16 h-16 rounded-2xl border-2 border-dashed border-white/20 hover:border-blue-500/60 bg-white/5 hover:bg-blue-500/5 transition-all flex items-center justify-center overflow-hidden">
-                  {logoPreview ? (
-                    <img src={logoPreview} alt="preview" className="w-full h-full object-contain p-1" />
-                  ) : (
-                    <ImageIcon size={22} className="text-slate-500" />
-                  )}
-                </div>
-              </label>
+              <input
+                ref={newLogoRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={e => handleLogoFile(e.target.files[0], true)}
+              />
+              <button
+                type="button"
+                onClick={() => newLogoRef.current?.click()}
+                className="w-16 h-16 rounded-2xl border-2 border-dashed border-white/20 hover:border-blue-500/60 bg-white/5 hover:bg-blue-500/5 transition-all flex items-center justify-center overflow-hidden"
+              >
+                {logoPreview ? (
+                  <img src={logoPreview} alt="preview" className="w-full h-full object-contain p-1" />
+                ) : (
+                  <ImageIcon size={22} className="text-slate-500" />
+                )}
+              </button>
             </div>
             <div className="form-group sm-group">
               <label>Usuario</label>
@@ -1358,25 +1368,31 @@ function AdminPanelView() {
 
       <div className="space-y-4">
         {users.map(u => (
-          <div key={u._id} className="glass p-5 rounded-[24px] border-white/5 flex justify-between items-start bg-white/2">
-            <div className="flex items-center gap-3">
-              {/* User Logo */}
-              <label className="cursor-pointer group relative" title="Cambiar logo">
-                <input type="file" accept="image/*" className="hidden" onChange={e => handleLogoFile(e.target.files[0], false, u._id)} />
-                <div className="w-10 h-10 rounded-xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center">
-                  {u.logoUrl ? (
-                    <img src={u.logoUrl} alt="logo" className="w-full h-full object-contain" />
-                  ) : (
-                    <ImageIcon size={16} className="text-slate-600" />
-                  )}
-                </div>
-                <div className="absolute inset-0 bg-blue-500/30 opacity-0 group-hover:opacity-100 rounded-xl transition-opacity flex items-center justify-center">
-                  <Edit size={10} className="text-white" />
-                </div>
-              </label>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-bold text-sm tracking-tight">{u.username.toUpperCase()}</h3>
+          <div key={u._id} className="glass p-4 rounded-[24px] border-white/5 flex justify-between items-center gap-3 overflow-hidden">
+            <div className="flex items-center gap-3 min-w-0">
+              {/* User Logo - clean square button */}
+              <input
+                ref={el => userLogoRefs.current[u._id] = el}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={e => handleLogoFile(e.target.files[0], false, u._id)}
+              />
+              <button
+                type="button"
+                onClick={() => userLogoRefs.current[u._id]?.click()}
+                title="Cambiar logo"
+                className="w-10 h-10 flex-shrink-0 rounded-xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center hover:border-blue-500/50 transition-all"
+              >
+                {u.logoUrl ? (
+                  <img src={u.logoUrl} alt="logo" className="w-full h-full object-contain" />
+                ) : (
+                  <ImageIcon size={14} className="text-slate-600" />
+                )}
+              </button>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-bold text-sm tracking-tight truncate">{u.username.toUpperCase()}</h3>
                 <span className={clsx(
                   "px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider",
                   u.status === 'active' ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-500"
