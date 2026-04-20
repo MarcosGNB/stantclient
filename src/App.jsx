@@ -41,7 +41,9 @@ import { format, startOfMonth, isToday, isThisWeek, isThisMonth, isWithinInterva
 import { clsx } from 'clsx';
 import { exportComponent } from './utils/exportUtils';
 
-const API_URL = 'https://serverstant.onrender.com/api';
+const API_URL = window.location.hostname === 'localhost' 
+  ? 'http://localhost:5000/api' 
+  : 'https://serverstant.onrender.com/api';
 
 // Initial Setup: Token & Interceptors
 const initialToken = localStorage.getItem('vapo_token');
@@ -54,9 +56,10 @@ axios.interceptors.response.use(
   res => res,
   err => {
     if (err.response?.status === 401) {
-      localStorage.removeItem('vapo_token');
-      localStorage.removeItem('vapo_user');
-      window.location.reload(); // Force full reset on auth failure
+      console.warn('Sesión inválida (401). Limpiando credenciales...');
+      localStorage.clear(); // Clear everything
+      window.location.href = '/'; // Hard redirect to root
+      return new Promise(() => {}); // Stop promise chain
     }
     return Promise.reject(err);
   }
