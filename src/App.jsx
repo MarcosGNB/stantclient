@@ -26,7 +26,16 @@ import {
   Smartphone,
   Share,
   PlusSquare,
-  Search
+  Search,
+  User,
+  ShieldCheck,
+  Lock,
+  LogOut,
+  Users,
+  Settings,
+  AlertTriangle,
+  RotateCcw,
+  Trash2
 } from 'lucide-react';
 import { format, startOfMonth, isToday, isThisWeek, isThisMonth, isWithinInterval, startOfDay, endOfDay, subDays } from 'date-fns';
 import { clsx } from 'clsx';
@@ -39,12 +48,17 @@ function App() {
   const [stantes, setStantes] = useState([]);
   const [products, setProducts] = useState([]);
   const [selectedStante, setSelectedStante] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [showAddStante, setShowAddStante] = useState(false);
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [showSale, setShowSale] = useState(false);
   const [showRestock, setShowRestock] = useState(false);
   const [exportData, setExportData] = useState(null); // { title, items, totals }
+
+  // Auth State
+  const [token, setToken] = useState(localStorage.getItem('vapo_token'));
+  const [user, setUser] = useState(JSON.parse(localStorage.getItem('vapo_user')));
+  const [isBlocked, setIsBlocked] = useState(false);
 
   // PWA Install State
   const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -52,7 +66,22 @@ function App() {
   const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
-    fetchInitialData();
+    // Configure Axios Interceptor for Auth
+    if (token) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      fetchInitialData();
+    }
+
+    // Handle 403 (Blocked License)
+    const interceptor = axios.interceptors.response.use(
+      res => res,
+      err => {
+        if (err.response?.status === 403 && err.response?.data?.message?.includes('licencia mgnb')) {
+          setIsBlocked(true);
+        }
+        return Promise.reject(err);
+      }
+    );
     
     // Check if iOS
     const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -82,7 +111,9 @@ function App() {
         setShowInstallModal(true);
       }
     }
-  }, []);
+
+    return () => axios.interceptors.response.eject(interceptor);
+  }, [token]);
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
@@ -98,6 +129,8 @@ function App() {
   };
 
   const fetchInitialData = async () => {
+    if (!token) return;
+    setLoading(true);
     try {
       const [stRes, prRes] = await Promise.all([
         axios.get(`${API_URL}/stantes`),
@@ -109,8 +142,28 @@ function App() {
     } catch (err) { console.error("Error loading data", err); setLoading(false); }
   };
 
+  const handleLogin = (data) => {
+    setToken(data.token);
+    setUser(data.user);
+    localStorage.setItem('vapo_token', data.token);
+    localStorage.setItem('vapo_user', JSON.stringify(data.user));
+    setIsBlocked(false);
+  };
+
+  const handleLogout = () => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem('vapo_token');
+    localStorage.removeItem('vapo_user');
+    delete axios.defaults.headers.common['Authorization'];
+    setActiveTab('dashboard');
+  };
+
+  if (!token) return <LoginView onLogin={handleLogin} />;
+  if (isBlocked) return <LicenseBlockedView />;
+
   return (
-    <div className="flex flex-col h-full bg-[#0f1115] text-white overflow-hidden">
+    <div className="flex flex-col h-full bg-[#0f1115] text-white overflow-hidden font-sans">
       {/* Header */}
       {!selectedStante && (
         <header className="p-6 pb-2 animate-fade shrink-0">
@@ -119,14 +172,25 @@ function App() {
               <div className="w-12 h-12 glass rounded-2xl overflow-hidden flex-shrink-0 border border-white/10 shadow-lg">
                 <img src="/logo.png" alt="Logo" className="w-full h-full object-contain p-1" />
               </div>
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight text-white leading-none">VapoStant</h1>
-                <p className="text-slate-400 text-[10px] uppercase tracking-widest mt-1 font-bold">Gestión PRO</p>
+              <div onClick={handleLogout} className="cursor-pointer group">
+                <h1 className="text-xl font-bold tracking-tight text-white leading-none group-hover:text-red-400 transition-colors">VapoStant</h1>
+                <p className="text-slate-400 text-[10px] uppercase tracking-widest mt-1 font-bold group-hover:opacity-0 transition-opacity">
+                  {user?.role === 'admin' ? 'ADMIN CENTER' : 'GESTIÓN PRO'}
+                </p>
+                <div className="absolute opacity-0 group-hover:opacity-100 transition-opacity text-[8px] text-red-400 font-black flex items-center gap-1">
+                  <LogOut size={10} /> CERRAR SESIÓN
+                </div>
               </div>
             </div>
             <div className="flex gap-2">
-               <button onClick={() => setShowAddStante(true)} className="p-2 glass rounded-xl text-blue-400"><Store size={20} /></button>
-               <button onClick={() => setShowAddProduct(true)} className="p-2 glass rounded-xl text-emerald-400"><Package size={20} /></button>
+               {user?.role === 'admin' ? (
+                  <button onClick={() => setActiveTab('admin')} className={clsx("p-2 glass rounded-xl", activeTab === 'admin' ? "text-blue-500" : "text-white/50")}><ShieldCheck size={20} /></button>
+               ) : (
+                  <>
+                    <button onClick={() => setShowAddStante(true)} className="p-2 glass rounded-xl text-blue-400"><Store size={20} /></button>
+                    <button onClick={() => setShowAddProduct(true)} className="p-2 glass rounded-xl text-emerald-400"><Package size={20} /></button>
+                  </>
+               )}
             </div>
           </div>
         </header>
@@ -147,7 +211,10 @@ function App() {
           <>
             {activeTab === 'dashboard' && (
               <div className="animate-fade">
-                <h2 className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-4 px-2">Mis Sucursales</h2>
+                <div className="flex justify-between items-center mb-4 px-2">
+                   <h2 className="text-sm font-bold uppercase tracking-widest text-slate-500">Mis Sucursales</h2>
+                   <span className="text-[10px] font-black text-slate-700">@{user?.username}</span>
+                </div>
                 <div className="dashboard-grid">
                   {stantes.map(s => (
                     <div key={s._id} className="stante-card" onClick={() => setSelectedStante(s)}>
@@ -164,6 +231,13 @@ function App() {
                     <Plus size={24} className="text-slate-600" />
                   </div>
                 </div>
+                {stantes.length === 0 && (
+                   <div className="mt-10 p-8 glass rounded-3xl text-center">
+                      <Store className="mx-auto mb-4 text-slate-600" size={40} />
+                      <p className="text-sm text-slate-500 font-medium">Aún no tienes sucursales.<br/>Crea la primera para empezar.</p>
+                      <button onClick={() => setShowAddStante(true)} className="mt-5 text-blue-500 font-bold text-xs uppercase tracking-widest">Crear Sucursal</button>
+                   </div>
+                )}
               </div>
             )}
             
@@ -172,6 +246,8 @@ function App() {
             )}
 
             {activeTab === 'reports' && <GlobalReportsView stantes={stantes} onExport={(data) => setExportData(data)} />}
+
+            {activeTab === 'admin' && <AdminPanelView />}
           </>
         )}
       </main>
@@ -198,6 +274,9 @@ function App() {
           <NavButton active={activeTab === 'dashboard'} icon={<Store size={24} />} label="Panel" onClick={() => setActiveTab('dashboard')} />
           <NavButton active={activeTab === 'products'} icon={<Package size={24} />} label="Productos" onClick={() => setActiveTab('products')} />
           <NavButton active={activeTab === 'reports'} icon={<BarChart3 size={24} />} label="Negocio" onClick={() => setActiveTab('reports')} />
+          {user?.role === 'admin' && (
+             <NavButton active={activeTab === 'admin'} icon={<ShieldCheck size={24} />} label="Admin" onClick={() => setActiveTab('admin')} />
+          )}
         </nav>
       )}
     </div>
@@ -744,6 +823,206 @@ const AddProductModal = ({ onClose, onSuccess }) => {
   return (
     <div className="modal-overlay" onClick={onClose}><div className="modal-content" onClick={e => e.stopPropagation()}><h2 className="text-xl font-bold mb-6">Nuevo Producto</h2><form onSubmit={handleSubmit} className="space-y-4"><div className="form-group"><label>Nombre</label><input autoFocus type="text" className="w-full" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required /></div><div className="grid grid-cols-2 gap-4"><div className="form-group"><label>Precio Compra</label><input type="number" className="w-full" value={formData.purchasePrice} onChange={e => setFormData({...formData, purchasePrice: e.target.value})} required /></div><div className="form-group"><label>Precio Venta</label><input type="number" className="w-full" value={formData.salesPrice} onChange={e => setFormData({...formData, salesPrice: e.target.value})} required /></div></div><button className="btn-primary">Crear</button></form></div></div>
   )
+}
+
+function LoginView({ onLogin }) {
+  const [isRegister, setIsRegister] = useState(false);
+  const [formData, setFormData] = useState({ username: '', password: '' });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      const endpoint = isRegister ? 'register' : 'login';
+      const res = await axios.post(`${API_URL}/auth/${endpoint}`, formData);
+      onLogin(res.data);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Error en la conexión');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#0a0b0d] p-6 relative overflow-hidden">
+      <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-600/10 blur-[120px] rounded-full" />
+      <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-emerald-600/10 blur-[120px] rounded-full" />
+      
+      <div className="glass max-w-sm w-full p-8 rounded-[32px] relative z-10 border-white/5">
+        <div className="flex flex-col items-center mb-8">
+          <div className="w-16 h-16 glass rounded-2xl flex items-center justify-center mb-4 border-white/10 shadow-2xl">
+            <ShieldCheck className="text-blue-500" size={32} />
+          </div>
+          <h1 className="text-2xl font-black tracking-tighter">Vapo<span className="text-blue-500">Stant</span></h1>
+          <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Management System</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="form-group">
+            <label className="text-[10px] uppercase font-bold text-slate-500 mb-2 block">Usuario</label>
+            <div className="relative">
+              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
+              <input 
+                type="text" 
+                className="w-full h-12 pl-12 pr-4 bg-white/5 border-white/10 rounded-2xl text-sm focus:border-blue-500/50 transition-all font-medium"
+                placeholder="Nombre de usuario"
+                value={formData.username}
+                onChange={e => setFormData({ ...formData, username: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="text-[10px] uppercase font-bold text-slate-500 mb-2 block">Contraseña</label>
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
+              <input 
+                type="password" 
+                className="w-full h-12 pl-12 pr-4 bg-white/5 border-white/10 rounded-2xl text-sm focus:border-blue-500/50 transition-all font-medium"
+                placeholder="••••••••"
+                value={formData.password}
+                onChange={e => setFormData({ ...formData, password: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+
+          {error && <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-[10px] font-bold text-center animate-shake">{error}</div>}
+
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="w-full h-14 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-black text-sm tracking-widest rounded-2xl transition-all shadow-xl shadow-blue-900/20 mt-2"
+          >
+            {loading ? 'CARGANDO...' : (isRegister ? 'CREAR CUENTA' : 'ENTRAR AL SISTEMA')}
+          </button>
+
+          <p className="text-center text-[10px] font-bold text-slate-500 pt-4">
+            {isRegister ? '¿YA TIENES CUENTA?' : '¿NUEVO CLIENTE?'} {' '}
+            <button 
+              type="button" 
+              onClick={() => setIsRegister(!isRegister)}
+              className="text-blue-500 hover:underline ml-1"
+            >
+              {isRegister ? 'INICIA SESIÓN' : 'REGÍSTRATE AQUÍ'}
+            </button>
+          </p>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function LicenseBlockedView() {
+  return (
+    <div className="fixed inset-0 z-[9999] bg-[#0a0b0d] flex items-center justify-center p-8">
+      <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-red-600/10 blur-[120px] rounded-full" />
+      <div className="max-w-md w-full bg-white/5 border border-white/10 backdrop-blur-3xl p-10 rounded-[40px] text-center">
+        <div className="w-20 h-20 bg-red-500/10 rounded-3xl flex items-center justify-center mx-auto mb-8 animate-pulse border border-red-500/20">
+          <AlertTriangle className="text-red-500" size={40} />
+        </div>
+        <h1 className="text-3xl font-black mb-4 tracking-tight">ACCESO DENEGADO</h1>
+        <div className="h-1 w-12 bg-red-500 mx-auto rounded-full mb-6 opacity-50" />
+        <p className="text-slate-400 text-lg leading-relaxed mb-10 font-medium italic">
+          "bloqueado temporalmente por motivos de licencia mgnb"
+        </p>
+        <p className="text-[10px] text-slate-600 font-bold uppercase tracking-[0.3em]">MGNB SOFTWARE SOLUTIONS</p>
+      </div>
+    </div>
+  );
+}
+
+function AdminPanelView() {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchUsers = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/admin/users`);
+      setUsers(res.data);
+    } catch (err) { alert('Error al cargar usuarios'); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchUsers(); }, []);
+
+  const toggleStatus = async (id) => {
+    try {
+      await axios.patch(`${API_URL}/admin/users/${id}/status`);
+      fetchUsers();
+    } catch (err) { alert('No se pudo cambiar el estado'); }
+  };
+
+  const deleteUser = async (id) => {
+    if (!confirm('¿ESTÁS SEGURO? Se borrarán TODOS los datos comercial de este usuario para siempre.')) return;
+    try {
+      await axios.delete(`${API_URL}/admin/users/${id}`);
+      fetchUsers();
+    } catch (err) { alert('Error al eliminar'); }
+  };
+
+  return (
+    <div className="animate-fade">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h2 className="text-2xl font-black">ADMINISTRADOR</h2>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Gestión de Licencias MGNB</p>
+        </div>
+        <div className="w-12 h-12 glass rounded-2xl flex items-center justify-center text-blue-500">
+          <Settings size={24} />
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {users.map(u => (
+          <div key={u._id} className="glass p-5 rounded-[24px] border-white/5 flex justify-between items-center bg-white/2">
+            <div>
+              <div className="flex items-center gap-3">
+                <h3 className="font-bold text-sm tracking-tight">{u.username.toUpperCase()}</h3>
+                <span className={clsx(
+                  "px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider",
+                  u.status === 'active' ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-500"
+                )}>
+                  {u.status}
+                </span>
+                {u.role === 'admin' && <ShieldCheck size={14} className="text-blue-500" />}
+              </div>
+              <p className="text-[10px] text-slate-500 mt-1 font-bold">Desde: {format(new Date(u.createdAt), 'dd MMMM, yyyy')}</p>
+            </div>
+            
+            <div className="flex gap-2">
+              <button 
+                onClick={() => toggleStatus(u._id)}
+                title={u.status === 'active' ? 'Bloquear Licencia' : 'Activar Licencia'}
+                className={clsx(
+                  "w-10 h-10 rounded-xl flex items-center justify-center transition-all",
+                  u.status === 'active' ? "bg-red-500/10 text-red-500 hover:bg-red-500/20" : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                )}
+              >
+                {u.status === 'active' ? <Lock size={18} /> : <RotateCcw size={18} />}
+              </button>
+              {u.role !== 'admin' && (
+                <button 
+                  onClick={() => deleteUser(u._id)}
+                  className="w-10 h-10 bg-white/5 text-slate-500 hover:bg-red-600 hover:text-white rounded-xl flex items-center justify-center transition-all"
+                >
+                  <Trash2 size={18} />
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+
+        {users.length === 0 && !loading && (
+          <div className="text-center py-20 text-slate-600 italic text-sm">No se encontraron clientes</div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function PWAInstallModal({ isIOS, onInstall }) {
