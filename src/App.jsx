@@ -615,51 +615,50 @@ const AddProductModal = ({ onClose, onSuccess }) => {
   )
 }
 
-const PWAInstallModal = ({ isIOS, onInstall, onClose }) => {
+function PWAInstallModal({ isIOS, onInstall }) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade">
-      <div className="w-full max-w-sm bg-[#1e293b] border border-white/10 rounded-[32px] overflow-hidden shadow-2xl animate-slide-up">
-        <div className="p-8 text-center">
-          <div className="w-20 h-20 mx-auto mb-6 bg-blue-500/20 rounded-3xl flex items-center justify-center border border-blue-500/20 shadow-inner">
-            <img src="/logo.png" alt="logo" className="w-12 h-12 object-contain" />
-          </div>
-          
-          <h2 className="text-2xl font-bold mb-2">Instalar VapoStant</h2>
-          <p className="text-slate-400 text-sm mb-8">
-            Instala nuestra app para una experiencia más rápida, fluida y sin bordes.
-          </p>
-
-          {isIOS ? (
-            <div className="space-y-4 text-left bg-white/5 p-6 rounded-2xl border border-white/5">
-              <p className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-4">Instrucciones para iPhone</p>
-              <div className="flex items-center gap-4">
-                <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-sm font-bold">1</div>
-                <p className="text-sm">Toca el botón <span className="bg-white/10 p-1 rounded inline-flex"><Share size={14} /></span> en la barra inferior.</p>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-sm font-bold">2</div>
-                <p className="text-sm">Desliza hacia abajo y selecciona <span className="font-bold text-white">"Agregar al inicio"</span> <span className="bg-white/10 p-1 rounded inline-flex"><PlusSquare size={14} /></span></p>
-              </div>
-            </div>
-          ) : (
-            <button 
-              onClick={onInstall}
-              className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl transition-all shadow-lg shadow-blue-900/40 flex items-center justify-center gap-2"
-            >
-              <Smartphone size={20} /> Instalar Ahora
-            </button>
-          )}
-
-          <button 
-            onClick={onClose}
-            className="mt-6 text-slate-500 text-sm font-medium hover:text-slate-300 transition-colors"
-          >
-            Quizás más tarde
-          </button>
+    <div className="pwa-overlay">
+      <div className="pwa-glow-1" />
+      <div className="pwa-glow-2" />
+      
+      <div className="pwa-content">
+        <div className="pwa-logo-box">
+          <img src="/logo.png" alt="logo" className="w-14 h-14 object-contain brightness-110" />
         </div>
+        
+        <div className="mb-14">
+          <h1 className="text-4xl font-black mb-3 tracking-tighter text-white drop-shadow-2xl">
+            Vapo<span className="text-blue-500">Stant</span>
+          </h1>
+          <div className="h-1 w-12 bg-blue-500 mx-auto rounded-full mb-4 opacity-50" />
+          <p className="text-slate-400 text-sm max-w-[260px] mx-auto leading-relaxed font-medium">
+            Sistema de gestión optimizado. Instala la aplicación para continuar.
+          </p>
+        </div>
+
+        {isIOS ? (
+          <div className="pwa-ios-card">
+            <div className="flex items-start gap-5">
+              <div className="pwa-step-icon">1</div>
+              <p className="text-sm text-slate-200 leading-snug">Presiona el icono <span className="bg-white/10 p-2 rounded-xl inline-flex items-center mx-1"><Share size={16} /></span> en tu navegador.</p>
+            </div>
+            <div className="flex items-start gap-5">
+              <div className="pwa-step-icon">2</div>
+              <p className="text-sm text-slate-200 leading-snug">Elige <span className="font-bold text-white whitespace-nowrap">"Agregar al inicio"</span> <span className="bg-white/10 p-2 rounded-xl inline-flex items-center mx-1"><PlusSquare size={16} /></span></p>
+            </div>
+          </div>
+        ) : (
+          <button 
+            onClick={onInstall}
+            className="pwa-install-btn"
+          >
+            <Smartphone size={24} /> INSTALAR AHORA
+          </button>
+        )}
+        <p className="mt-8 text-[10px] text-slate-600 font-bold uppercase tracking-[0.3em]">Gestión Exclusiva VapoStant</p>
       </div>
     </div>
   );
-};
+}
 
 export default App;
