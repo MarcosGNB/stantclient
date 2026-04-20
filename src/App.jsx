@@ -442,32 +442,41 @@ const GlobalReportsView = ({ stantes, onExport }) => {
 
   useEffect(() => {
     const fetchGlobal = async () => {
-      const res = await axios.get(`${API_URL}/sales`);
-      setSales(res.data);
+      try {
+        const [saleRes, restockRes] = await Promise.all([
+          axios.get(`${API_URL}/sales`),
+          axios.get(`${API_URL}/restocks`)
+        ]);
+        
+        // Mark items with their type for rendering
+        const allItems = [
+          ...saleRes.data.map(s => ({ ...s, type: 'sale' })),
+          ...restockRes.data.map(r => ({ ...r, type: 'restock' }))
+        ];
+        
+        setSales(allItems);
+      } catch (err) { console.error("Error fetching global history", err); }
     };
     fetchGlobal();
   }, []);
 
   const filteredSales = sales.filter(s => {
     const matchesStante = stanteFilter === 'Global' || s.stante === stanteFilter;
-    const saleDate = new Date(s.createdAt);
+    const itemDate = new Date(s.createdAt);
     
     let matchesTime = true;
-    if (timeFilter === 'Hoy') matchesTime = isToday(saleDate);
-    else if (timeFilter === 'Semana') matchesTime = isThisWeek(saleDate);
-    else if (timeFilter === 'Mes') matchesTime = isThisMonth(saleDate);
+    if (timeFilter === 'Hoy') matchesTime = isToday(itemDate);
+    else if (timeFilter === 'Semana') matchesTime = isThisWeek(itemDate);
+    else if (timeFilter === 'Mes') matchesTime = isThisMonth(itemDate);
     else if (timeFilter === 'Personalizado') {
-      matchesTime = isWithinInterval(saleDate, {
+      matchesTime = isWithinInterval(itemDate, {
         start: startOfDay(new Date(customStart + 'T00:00:00')),
         end: endOfDay(new Date(customEnd + 'T23:59:59'))
       });
     }
     return matchesStante && matchesTime;
-  });
+  }).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-  const totals = {
-    totalRevenue: filteredSales.reduce((a, b) => a + b.total, 0),
-    totalProfit: filteredSales.reduce((a, b) => a + (b.total - (b.purchasePrice * b.quantity)), 0)
   };
 
   const handleExport = () => {
@@ -478,13 +487,16 @@ const GlobalReportsView = ({ stantes, onExport }) => {
     onExport({
       title: `${title} - ${stanteFilter}`,
       mode: 'history',
-      items: filteredSales.map(s => ({
-        name: s.product?.name || 'Eliminado',
-        quantity: s.quantity,
-        price: s.salesPrice,
-        total: s.total,
-        profit: s.total - (s.purchasePrice * s.quantity)
-      })),
+      items: filteredSales.map(i => {
+        const isSale = i.type === 'sale';
+        return {
+          name: `${i.product?.name || 'Eliminado'} (${isSale ? 'Venta' : 'Reposición'})`,
+          quantity: i.quantity,
+          price: isSale ? i.salesPrice : 0,
+          total: isSale ? i.total : 0,
+          profit: isSale ? (i.total - (i.purchasePrice * i.quantity)) : 0
+        };
+      }),
       totals
     });
   };
@@ -537,18 +549,28 @@ const GlobalReportsView = ({ stantes, onExport }) => {
         Feed: {stanteFilter} ({timeFilter})
       </h3>
       <div className="space-y-4">
-        {filteredSales.slice(0, 20).map(s => (
-          <div key={s._id} className="glass p-4 rounded-xl flex justify-between items-center">
-            <div>
-              <h4 className="font-bold text-sm">{s.product?.name}</h4>
-              <p className="text-[10px] text-slate-500">{s.stante} • {format(new Date(s.createdAt), 'dd/MM/yy')}</p>
+        {filteredSales.slice(0, 50).map((item, index) => {
+          const isSale = item.type === 'sale';
+          return (
+            <div key={index} className="glass p-4 rounded-xl flex justify-between items-center bg-white/2 border-white/5">
+              <div>
+                <div className="flex items-center gap-2">
+                   <h4 className="font-bold text-sm">{item.product?.name || 'Eliminado'}</h4>
+                   <span className={clsx("text-[8px] font-black uppercase px-1.5 py-0.5 rounded", isSale ? "bg-emerald-500/10 text-emerald-400" : "bg-blue-500/10 text-blue-400")}>
+                      {isSale ? 'VENTA' : 'REPOSICIÓN'}
+                   </span>
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1">{item.stante} • {format(new Date(item.createdAt), 'dd MMM, HH:mm')}</p>
+              </div>
+              <div className="text-right">
+                <span className={clsx("text-sm font-bold block", isSale ? "text-emerald-400" : "text-blue-400")}>
+                  {isSale ? `Gs. ${item.total.toLocaleString()}` : `+${item.quantity} und`}
+                </span>
+                {isSale && <span className="text-[10px] text-slate-600 block">+{item.quantity} und.</span>}
+              </div>
             </div>
-            <div className="text-right">
-              <span className="text-sm font-bold text-emerald-400">+Gs. {s.total.toLocaleString()}</span>
-              <span className="text-[10px] text-slate-600 block">+{s.quantity} und.</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
         {filteredSales.length === 0 && (
           <div className="text-center py-10 text-slate-600 italic text-sm">Sin registros para este filtro</div>
         )}
