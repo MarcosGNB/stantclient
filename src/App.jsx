@@ -727,41 +727,47 @@ function SaleModal({ products, stantes, initialStante, onClose, onSuccess }) {
             <div className="relative mb-3">
               <Search className="absolute left-3 top-3 text-slate-500" size={18} />
               <input 
+              <input 
                 type="text" 
                 placeholder="Buscar por nombre..." 
                 className="w-full pl-10 h-12 bg-white/5 border-white/10 rounded-xl text-sm"
                 value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
+                onChange={e => {
+                  setSearchTerm(e.target.value);
+                  setSelectedProd(''); // Clean selection if they type again
+                }}
               />
             </div>
             
-            <div className="max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-              {filteredProducts.map(p => (
-                <div 
-                  key={p._id} 
-                  onClick={() => setSelectedProd(p._id)}
-                  className={clsx(
-                    "p-3 rounded-xl border transition-all cursor-pointer flex justify-between items-center",
-                    selectedProd === p._id ? "bg-blue-600/20 border-blue-500/50" : "bg-white/5 border-transparent grayscale opacity-70"
-                  )}
-                >
-                  <div>
-                    <span className="text-sm font-bold block">{p.name}</span>
-                    {selectedStante && (
-                      <span className="text-[10px] text-blue-400 font-medium">
-                        Disponibles: {p.stock[selectedStante]} und.
-                      </span>
-                    )}
+            {!selectedProd && (
+              <div className="max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                {filteredProducts.map(p => (
+                  <div 
+                    key={p._id} 
+                    onClick={() => {
+                      setSelectedProd(p._id);
+                      setSearchTerm(p.name);
+                    }}
+                    className="p-3 rounded-xl border transition-all cursor-pointer flex justify-between items-center bg-white/5 border-transparent hover:bg-white/10"
+                  >
+                    <div>
+                      <span className="text-sm font-bold block">{p.name}</span>
+                      {selectedStante && (
+                        <span className="text-[10px] text-blue-400 font-medium">
+                          Disponibles: {p.stock[selectedStante] || 0} und.
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs text-white font-bold opacity-80">Gs. {p.salesPrice.toLocaleString()}</span>
                   </div>
-                  <span className="text-xs text-white font-bold opacity-80">Gs. {p.salesPrice.toLocaleString()}</span>
-                </div>
-              ))}
-              {filteredProducts.length === 0 && (
-                <div className="text-center py-6 text-slate-600 italic text-sm">
-                  {selectedStante ? 'No hay productos con stock en esta sucursal' : 'Busca un producto...'}
-                </div>
-              )}
-            </div>
+                ))}
+                {filteredProducts.length === 0 && (
+                  <div className="text-center py-6 text-slate-600 italic text-sm">
+                    {selectedStante ? 'No hay productos con stock en esta sucursal' : 'Busca un producto...'}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -821,30 +827,42 @@ function RestockModal({ products, stantes, initialStante, onClose, onSuccess }) 
                 placeholder="Buscar por nombre..." 
                 className="w-full pl-10 h-12 bg-white/5 border-white/10 rounded-xl text-sm"
                 value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
+                onChange={e => {
+                  setSearchTerm(e.target.value);
+                  setSelectedProd('');
+                }}
               />
             </div>
-            <div className="max-h-40 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-              {filteredProducts.map(p => (
-                <div 
-                  key={p._id} 
-                  onClick={() => setSelectedProd(p._id)}
-                  className={clsx(
-                    "p-3 rounded-xl border transition-all cursor-pointer flex justify-between items-center",
-                    selectedProd === p._id ? "bg-emerald-600/20 border-emerald-500/50" : "bg-white/5 border-transparent grayscale opacity-70"
-                  )}
-                >
-                  <span className="text-sm font-bold">{p.name}</span>
-                  <span className="text-xs text-emerald-400 font-bold">{Object.values(p.stock || {}).reduce((a,b)=>a+b,0)} und.</span>
-                </div>
-              ))}
-            </div>
+
+            {!selectedProd && (
+              <div className="max-h-40 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                {filteredProducts.map(p => (
+                  <div 
+                    key={p._id} 
+                    onClick={() => {
+                      setSelectedProd(p._id);
+                      setSearchTerm(p.name);
+                    }}
+                    className="p-3 rounded-xl border transition-all cursor-pointer flex justify-between items-center bg-white/5 border-transparent hover:bg-white/10"
+                  >
+                    <span className="text-sm font-bold">{p.name}</span>
+                    <span className="text-xs text-emerald-400 font-bold">{Object.values(p.stock || {}).reduce((a,b)=>a+b,0)} und.</span>
+                  </div>
+                ))}
+                {filteredProducts.length === 0 && (
+                  <div className="text-center py-6 text-slate-600 italic text-sm">
+                    No se encontraron productos.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           
           <div className="grid grid-cols-2 gap-4">
              <div className="form-group">
                <label>Sucursal</label>
                <select className="w-full h-12" value={selectedStante} onChange={e => setSelectedStante(e.target.value)} required disabled={!!initialStante}>
+                 <option value="">Sucursal...</option>
                  {stantes.map(s => <option key={s._id} value={s.name}>{s.name}</option>)}
                </select>
              </div>
