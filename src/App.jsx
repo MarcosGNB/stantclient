@@ -1317,21 +1317,17 @@ function AdminPanelView() {
         <div className="glass p-6 rounded-[24px] border-blue-500/20 mb-8 animate-slide-up">
           <h3 className="text-xs font-black uppercase tracking-widest mb-6">Nuevo Usuario Comercial</h3>
           <form onSubmit={handleAddUser} className="space-y-4">
-            {/* Logo Upload */}
+            {/* Logo Upload - Square Gallery Button */}
             <div className="form-group sm-group">
               <label>Logo del Negocio (opcional)</label>
-              <label className="flex items-center gap-3 cursor-pointer glass p-3 rounded-xl border border-dashed border-white/20 hover:border-blue-500/50 transition-all">
+              <label className="block w-16 h-16 cursor-pointer">
                 <input type="file" accept="image/*" className="hidden" onChange={e => handleLogoFile(e.target.files[0], true)} />
-                {logoPreview ? (
-                  <img src={logoPreview} alt="preview" className="w-12 h-12 object-contain rounded-lg" />
-                ) : (
-                  <div className="w-12 h-12 bg-white/5 rounded-lg flex items-center justify-center text-slate-500">
-                    <ImageIcon size={22} />
-                  </div>
-                )}
-                <div>
-                  <p className="text-xs font-bold">{logoPreview ? 'Logo cargado ✓' : 'Subir logo del cliente'}</p>
-                  <p className="text-[10px] text-slate-500">PNG, JPG o SVG. Se mostrará en sus reportes.</p>
+                <div className="w-16 h-16 rounded-2xl border-2 border-dashed border-white/20 hover:border-blue-500/60 bg-white/5 hover:bg-blue-500/5 transition-all flex items-center justify-center overflow-hidden">
+                  {logoPreview ? (
+                    <img src={logoPreview} alt="preview" className="w-full h-full object-contain p-1" />
+                  ) : (
+                    <ImageIcon size={22} className="text-slate-500" />
+                  )}
                 </div>
               </label>
             </div>
