@@ -78,6 +78,11 @@ function App() {
   const [showRestock, setShowRestock] = useState(false);
   const [exportData, setExportData] = useState(null); // { title, items, totals }
   const [editingProduct, setEditingProduct] = useState(null);
+  
+  // Stante Deletion State
+  const [deletingStanteId, setDeletingStanteId] = useState(null);
+  const longPressTimer = useRef(null);
+  const isLongPress = useRef(false);
 
   // Auth State
   const [token, setToken] = useState(localStorage.getItem('vapo_token'));
@@ -158,6 +163,34 @@ function App() {
     } catch(err) {
       alert(err.response?.data?.message || 'Error al eliminar producto');
     }
+  };
+
+  const handleDeleteStante = async (id, name) => {
+    if (!window.confirm(`¿ELIMINAR SUCURSAL "${name.toUpperCase()}"?\n\n⚠️ ¡ESTA ACCIÓN ES DESTRUCTIVA E IRREVERSIBLE! ⚠️\n\nSe borrará de forma permanente:\n- Esta sucursal\n- Todo el historial de ventas en ${name}\n- Todas las reposiciones en ${name}\n- El stock de todos los productos almacenados en ${name}\n\n¿Estás totalmente seguro de continuar?`)) {
+      setDeletingStanteId(null);
+      return;
+    }
+    setLoading(true);
+    try {
+      await axios.delete(`${API_URL}/stantes/${id}`);
+      setDeletingStanteId(null);
+      fetchInitialData();
+    } catch(err) {
+      alert(err.response?.data?.message || 'Error al eliminar sucursal');
+      setLoading(false);
+    }
+  };
+
+  const handlePointerDown = (id) => {
+    isLongPress.current = false;
+    longPressTimer.current = setTimeout(() => {
+      setDeletingStanteId(id);
+      isLongPress.current = true;
+    }, 800);
+  };
+
+  const handlePointerCancel = () => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
   };
 
   const fetchInitialData = async () => {
@@ -254,14 +287,38 @@ function App() {
                     </div>
                     <div className="dashboard-grid">
                       {stantes.map(s => (
-                        <div key={s._id} className="stante-card" onClick={() => setSelectedStante(s)}>
-                          <div className="stante-icon-wrapper"><Store size={24} /></div>
-                          <div>
-                            <h3 className="font-bold text-sm">{s.name}</h3>
-                            <p className="text-[10px] text-slate-500 flex items-center justify-center gap-1">
-                              <MapPin size={8} /> {s.location || 'Sucursal'}
-                            </p>
+                        <div 
+                          key={s._id} 
+                          className={clsx("stante-card relative overflow-hidden transition-all duration-300", deletingStanteId === s._id ? "ring-2 ring-red-500 bg-red-500/10" : "")} 
+                          onPointerDown={() => handlePointerDown(s._id)}
+                          onPointerUp={handlePointerCancel}
+                          onPointerLeave={handlePointerCancel}
+                          onClick={() => {
+                            if (isLongPress.current) return; // Ignore click triggered exactly after long-press timeout
+                            if (deletingStanteId === s._id) {
+                              handleDeleteStante(s._id, s.name);
+                            } else {
+                              if (deletingStanteId) setDeletingStanteId(null);
+                              else setSelectedStante(s);
+                            }
+                          }}
+                        >
+                          <div className={clsx("transition-opacity", deletingStanteId === s._id ? "opacity-20" : "")}>
+                            <div className="stante-icon-wrapper"><Store size={24} /></div>
+                            <div>
+                              <h3 className="font-bold text-sm">{s.name}</h3>
+                              <p className="text-[10px] text-slate-500 flex items-center justify-center gap-1">
+                                <MapPin size={8} /> {s.location || 'Sucursal'}
+                              </p>
+                            </div>
                           </div>
+                          
+                          {deletingStanteId === s._id && (
+                            <div className="absolute inset-0 bg-red-600/90 flex flex-col items-center justify-center z-10 animate-fade">
+                              <Trash2 className="text-white mb-2 animate-bounce" size={24} />
+                              <span className="text-white font-black tracking-widest text-[10px]">ELIMINAR</span>
+                            </div>
+                          )}
                         </div>
                       ))}
                       <div className="stante-card bg-transparent border-dashed border-white/10" onClick={() => setShowAddStante(true)}>
