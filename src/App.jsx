@@ -55,11 +55,11 @@ if (initialToken) {
 axios.interceptors.response.use(
   res => res,
   err => {
-    if (err.response?.status === 401) {
+    if (err.response?.status === 401 && !err.config.url.includes('/auth/login')) {
       console.warn('Sesión inválida (401). Limpiando credenciales...');
-      localStorage.clear(); // Clear everything
-      window.location.href = '/'; // Hard redirect to root
-      return new Promise(() => {}); // Stop promise chain
+      localStorage.clear(); 
+      window.location.href = '/';
+      return new Promise(() => {});
     }
     return Promise.reject(err);
   }
