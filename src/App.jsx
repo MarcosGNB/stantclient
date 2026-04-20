@@ -443,19 +443,25 @@ const GlobalReportsView = ({ stantes, onExport }) => {
   useEffect(() => {
     const fetchGlobal = async () => {
       try {
+        console.log('--- Fetching Global History ---');
         const [saleRes, restockRes] = await Promise.all([
           axios.get(`${API_URL}/sales`),
           axios.get(`${API_URL}/restocks`)
         ]);
         
-        // Mark items with their type for rendering
+        console.log('Recibidas Ventas:', saleRes.data.length);
+        console.log('Recibidas Reposiciones:', restockRes.data.length);
+
         const allItems = [
           ...saleRes.data.map(s => ({ ...s, type: 'sale' })),
           ...restockRes.data.map(r => ({ ...r, type: 'restock' }))
         ];
         
         setSales(allItems);
-      } catch (err) { console.error("Error fetching global history", err); }
+      } catch (err) { 
+        console.error("Error fetching global history:", err);
+        setSales([]);
+      }
     };
     fetchGlobal();
   }, []);
@@ -772,7 +778,11 @@ function SaleModal({ products, stantes, initialStante, onClose, onSuccess }) {
             </div>
           </div>
 
-          <button className="btn-primary w-full h-14 text-sm font-black tracking-widest shadow-xl shadow-blue-900/20">
+          <button 
+            type="submit"
+            disabled={!selectedProd || !selectedStante || quantity < 1}
+            className="btn-primary w-full h-14 text-sm font-black tracking-widest shadow-xl shadow-blue-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             CONFIRMAR VENTA
           </button>
         </form>
@@ -843,7 +853,11 @@ function RestockModal({ products, stantes, initialStante, onClose, onSuccess }) 
                <input type="number" className="w-full h-12 text-center text-lg font-bold" value={quantity} onChange={e => setQuantity(parseInt(e.target.value))} min="1" required />
              </div>
           </div>
-          <button className="btn-primary w-full h-14 bg-emerald-600 hover:bg-emerald-500 text-sm font-black tracking-widest shadow-xl shadow-emerald-900/20">
+          <button 
+            type="submit"
+            disabled={!selectedProd || !selectedStante || quantity < 1}
+            className="btn-primary w-full h-14 bg-emerald-600 hover:bg-emerald-500 text-sm font-black tracking-widest shadow-xl shadow-emerald-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             GUARDAR REPOSICIÓN
           </button>
         </form>
