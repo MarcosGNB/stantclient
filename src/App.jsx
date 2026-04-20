@@ -43,11 +43,24 @@ import { exportComponent } from './utils/exportUtils';
 
 const API_URL = 'https://serverstant.onrender.com/api';
 
-// Set global axios auth header immediately if token exists
+// Initial Setup: Token & Interceptors
 const initialToken = localStorage.getItem('vapo_token');
 if (initialToken) {
   axios.defaults.headers.common['Authorization'] = `Bearer ${initialToken}`;
 }
+
+// Global Interceptor for Auth Errors
+axios.interceptors.response.use(
+  res => res,
+  err => {
+    if (err.response?.status === 401) {
+      localStorage.removeItem('vapo_token');
+      localStorage.removeItem('vapo_user');
+      window.location.reload(); // Force full reset on auth failure
+    }
+    return Promise.reject(err);
+  }
+);
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -76,20 +89,17 @@ function App() {
       fetchInitialData();
     }
 
-    // Handle Errors (Auto-logout on 401, Block on 403)
-    const interceptor = axios.interceptors.response.use(
+    // Handle 403 (Blocked License)
+    const blockInterceptor = axios.interceptors.response.use(
       res => res,
       err => {
-        if (err.response?.status === 401) {
-          handleLogout();
-        }
         if (err.response?.status === 403 && err.response?.data?.message?.includes('licencia mgnb')) {
           setIsBlocked(true);
         }
         return Promise.reject(err);
       }
     );
-    
+
     // Check if iOS
     const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     setIsIOS(isIOSDevice);
