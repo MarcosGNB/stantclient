@@ -573,9 +573,10 @@ function SaleModal({ products, stantes, initialStante, onClose, onSuccess }) {
   const [selectedStante, setSelectedStante] = useState(initialStante || '');
   const [quantity, setQuantity] = useState(1);
 
-  const filteredProducts = products.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredProducts = products.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+    return selectedStante ? (matchesSearch && p.stock?.[selectedStante] > 0) : matchesSearch;
+  });
 
   const handleSale = async (e) => {
     e.preventDefault();
@@ -590,7 +591,7 @@ function SaleModal({ products, stantes, initialStante, onClose, onSuccess }) {
         
         <form onSubmit={handleSale} className="space-y-6">
           <div className="form-group">
-            <label className="text-[10px] uppercase font-black text-slate-500 tracking-widest mb-2 block">1. Elegir Producto</label>
+            <label className="text-[10px] uppercase font-black text-slate-500 tracking-widest mb-2 block">1. Elegir Producto (Con Stock)</label>
             <div className="relative mb-3">
               <Search className="absolute left-3 top-3 text-slate-500" size={18} />
               <input 
@@ -612,10 +613,22 @@ function SaleModal({ products, stantes, initialStante, onClose, onSuccess }) {
                     selectedProd === p._id ? "bg-blue-600/20 border-blue-500/50" : "bg-white/5 border-transparent grayscale opacity-70"
                   )}
                 >
-                  <span className="text-sm font-bold">{p.name}</span>
-                  <span className="text-xs text-blue-400 font-bold">Gs. {p.salesPrice.toLocaleString()}</span>
+                  <div>
+                    <span className="text-sm font-bold block">{p.name}</span>
+                    {selectedStante && (
+                      <span className="text-[10px] text-blue-400 font-medium">
+                        Disponibles: {p.stock[selectedStante]} und.
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs text-white font-bold opacity-80">Gs. {p.salesPrice.toLocaleString()}</span>
                 </div>
               ))}
+              {filteredProducts.length === 0 && (
+                <div className="text-center py-6 text-slate-600 italic text-sm">
+                  {selectedStante ? 'No hay productos con stock en esta sucursal' : 'Busca un producto...'}
+                </div>
+              )}
             </div>
           </div>
 
